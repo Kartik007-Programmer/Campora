@@ -1,0 +1,1021 @@
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>  
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ page import="java.util.List" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page import="mypackage.Teacher" %>
+<%@ page import="mypackage.*" %>
+<%@ page import="java.sql.SQLException" %>
+
+<%
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+
+    boolean isUserLoggedIn = true;
+    String AdminUsername = (String) session.getAttribute("admin");
+
+    if (AdminUsername == null) {
+        isUserLoggedIn = false;
+        RequestDispatcher rd = request.getRequestDispatcher("LoginForm.jsp");
+        rd.forward(request, response);
+        return;
+    }
+%>
+
+<%   
+    // Set page title for template
+    request.setAttribute("pageTitle", "View Teachers");
+%>
+
+<%
+    // Handle search parameter - MUST be BEFORE pagination
+    String searchParam = request.getParameter("search");
+    
+    // Handle filter parameters
+    String genderFilter = request.getParameter("genderFilter");
+    String statusFilter = request.getParameter("statusFilter");
+    
+    List<Teacher> allTeachers = null;
+    
+    if (request.getAttribute("teachers") == null) {
+        try {
+            DAO teacherDAO = new DAO();
+            allTeachers = teacherDAO.getAllTeachers();
+            
+            // Apply search filter if search parameter exists
+            if (searchParam != null && !searchParam.trim().isEmpty()) {
+                String searchTerm = searchParam.toLowerCase().trim();
+                List<Teacher> filteredTeachers = new ArrayList<>();
+                
+                for (Teacher teacher : allTeachers) {
+                    // Search in multiple fields with null checks
+                    String teacherName = teacher.getFullName() != null ? teacher.getFullName().toLowerCase() : "";
+                    String teacherEmail = teacher.getEmail() != null ? teacher.getEmail().toLowerCase() : "";
+                    String teacherSubject = teacher.getSubject() != null ? teacher.getSubject().toLowerCase() : "";
+                    String teacherQualification = teacher.getQualification() != null ? teacher.getQualification().toLowerCase() : "";
+                    
+                    if (teacherName.contains(searchTerm) ||
+                        teacherEmail.contains(searchTerm) ||
+                        teacherSubject.contains(searchTerm) ||
+                        teacherQualification.contains(searchTerm)) {
+                        filteredTeachers.add(teacher);
+                    }
+                }
+                allTeachers = filteredTeachers;
+            }
+            
+            // Apply gender filter
+            if (genderFilter != null && !genderFilter.trim().isEmpty()) {
+                List<Teacher> filteredByGender = new ArrayList<>();
+                String filterGender = genderFilter.trim();
+                
+                for (Teacher teacher : allTeachers) {
+                    if (teacher.getGender() != null && 
+                        teacher.getGender().equalsIgnoreCase(filterGender)) {
+                        filteredByGender.add(teacher);
+                    }
+                }
+                allTeachers = filteredByGender;
+            }
+            
+            // Apply status filter
+            if (statusFilter != null && !statusFilter.trim().isEmpty()) {
+                List<Teacher> filteredByStatus = new ArrayList<>();
+                String filterStatus = statusFilter.trim();
+                
+                for (Teacher teacher : allTeachers) {
+                    if (teacher.getStatus() != null && 
+                        teacher.getStatus().equalsIgnoreCase(filterStatus)) {
+                        filteredByStatus.add(teacher);
+                    }
+                }
+                allTeachers = filteredByStatus;
+            }
+            
+            request.setAttribute("teachers", allTeachers);
+        } catch (SQLException e) {
+            request.setAttribute("error", "Database error: " + e.getMessage());
+        }
+    } else {
+        allTeachers = (List<Teacher>) request.getAttribute("teachers");
+        
+        // Apply search filter to existing teachers if search parameter exists
+        if (searchParam != null && !searchParam.trim().isEmpty()) {
+            String searchTerm = searchParam.toLowerCase().trim();
+            List<Teacher> filteredTeachers = new ArrayList<>();
+            
+            for (Teacher teacher : allTeachers) {
+                // Search in multiple fields with null checks
+                String teacherName = teacher.getFullName() != null ? teacher.getFullName().toLowerCase() : "";
+                String teacherEmail = teacher.getEmail() != null ? teacher.getEmail().toLowerCase() : "";
+                String teacherSubject = teacher.getSubject() != null ? teacher.getSubject().toLowerCase() : "";
+                String teacherQualification = teacher.getQualification() != null ? teacher.getQualification().toLowerCase() : "";
+                
+                if (teacherName.contains(searchTerm) ||
+                    teacherEmail.contains(searchTerm) ||
+                    teacherSubject.contains(searchTerm) ||
+                    teacherQualification.contains(searchTerm)) {
+                    filteredTeachers.add(teacher);
+                }
+            }
+            allTeachers = filteredTeachers;
+        }
+        
+        // Apply gender filter
+        if (genderFilter != null && !genderFilter.trim().isEmpty()) {
+            List<Teacher> filteredByGender = new ArrayList<>();
+            String filterGender = genderFilter.trim();
+            
+            for (Teacher teacher : allTeachers) {
+                if (teacher.getGender() != null && 
+                    teacher.getGender().equalsIgnoreCase(filterGender)) {
+                    filteredByGender.add(teacher);
+                }
+            }
+            allTeachers = filteredByGender;
+        }
+        
+        // Apply status filter
+        if (statusFilter != null && !statusFilter.trim().isEmpty()) {
+            List<Teacher> filteredByStatus = new ArrayList<>();
+            String filterStatus = statusFilter.trim();
+            
+            for (Teacher teacher : allTeachers) {
+                if (teacher.getStatus() != null && 
+                    teacher.getStatus().equalsIgnoreCase(filterStatus)) {
+                    filteredByStatus.add(teacher);
+                }
+            }
+            allTeachers = filteredByStatus;
+        }
+    }
+    
+    // Pagination parameters
+    int pageSize = 5; // Number of entries per page
+    int currentPage = 1;
+    int totalPages = 0;
+    List<Teacher> paginatedTeachers = new ArrayList<>();
+    
+    if (allTeachers != null && !allTeachers.isEmpty()) {
+        // Get page number from request parameter
+        String pageParam = request.getParameter("page");
+        if (pageParam != null && !pageParam.isEmpty()) {
+            try {
+                currentPage = Integer.parseInt(pageParam);
+                if (currentPage < 1) {
+                    currentPage = 1;
+                }
+            } catch (NumberFormatException e) {
+                currentPage = 1;
+            }
+        }
+        
+        // Calculate pagination
+        int totalItems = allTeachers.size();
+        totalPages = (int) Math.ceil((double) totalItems / pageSize);
+        
+        // Ensure current page is within bounds
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+        
+        // Calculate start and end indices
+        int startIndex = (currentPage - 1) * pageSize;
+        int endIndex = Math.min(startIndex + pageSize, totalItems);
+        
+        // Get paginated teachers
+        for (int i = startIndex; i < endIndex; i++) {
+            paginatedTeachers.add(allTeachers.get(i));
+        }
+        
+        // Set pagination attributes
+        request.setAttribute("paginatedTeachers", paginatedTeachers);
+        request.setAttribute("currentPage", currentPage);
+        request.setAttribute("totalPages", totalPages);
+        request.setAttribute("totalItems", totalItems);
+        request.setAttribute("startItem", startIndex + 1);
+        request.setAttribute("endItem", endIndex);
+    }
+%>
+
+<!-- Set template variables -->
+<c:set var="pageContent" scope="request">
+    <!-- Page Header -->
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <h3 class="page-title mb-0">View Teachers</h3>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb"><a href="${pageContext.request.contextPath}/Dashboard/Admin_penal.jsp">Dashboard</a></li>
+                <li class="breadcrumb active" aria-current="page">View Teachers</li>
+            </ol>
+        </nav>
+    </div>
+    
+    <!-- Error/Success Messages -->
+    <c:if test="${not empty error}">
+        <div class="alert alert-danger alert-dismissible fade show">
+            ${error}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    </c:if>
+    
+    <c:if test="${not empty success}">
+        <div class="alert alert-success alert-dismissible fade show">
+            ${success}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    </c:if>
+    
+    <!-- Filters Card Section -->
+    <form method="get" action="view_teacher.jsp" id="filterForm">
+    <div class="card mb-3 border-0" style="background-color: transparent;">
+        <div class="card-body py-2 px-3">
+            <div class="row align-items-end g-3">
+                <div class="col-md-3">
+                    <label class="form-label mb-1 small" for="teacherSearch">Search</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-sm" 
+                               placeholder="Search all teachers" 
+                               id="teacherSearch"
+                               name="search"
+                               value="${param.search}">
+                        <c:if test="${not empty param.search or not empty param.genderFilter or not empty param.statusFilter}">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                    onclick="clearAllFilters()" 
+                                    title="Clear all filters">
+                                <i class="mdi mdi-close"></i>
+                            </button>
+                        </c:if>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label mb-1 small" for="genderFilter">Gender</label>
+                    <select class="form-control form-control-sm" id="genderFilter" name="genderFilter">
+                        <option value="">All</option>
+                        <option value="Male" ${param.genderFilter == 'Male' ? 'selected' : ''}>Male</option>
+                        <option value="Female" ${param.genderFilter == 'Female' ? 'selected' : ''}>Female</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label mb-1 small" for="statusFilter">Status</label>
+                    <select class="form-control form-control-sm" id="statusFilter" name="statusFilter">
+                        <option value="">All</option>
+                        <option value="Active" ${param.statusFilter == 'Active' ? 'selected' : ''}>Active</option>
+                        <option value="Inactive" ${param.statusFilter == 'Inactive' ? 'selected' : ''}>Inactive</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+
+                </div>
+
+                <div class="col-md-3 d-flex justify-content-end align-items-end" style="gap: 10px;">
+                    <div>
+                        <label class="form-label mb-1 small text-white d-block">Add</label>
+                        <a href="add_teacher.jsp"
+                           class="btn btn-sm d-flex align-items-center justify-content-center"
+                           style="background-color: #4f46e5; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
+                            <i class="mdi mdi-plus-circle-outline me-1" style="font-size: 14px;"></i> Add
+                        </a>
+                    </div>
+
+                    <div>
+                        <label class="form-label mb-1 small text-white d-block">Manage</label>
+                        <a href="manage_teacher.jsp"
+                           class="btn btn-sm d-flex align-items-center justify-content-center"
+                           style="background-color: #dfb016; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
+                            <i class="mdi mdi-cog me-1" style="font-size: 14px;"></i> Manage
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    </form>
+
+    <!-- Hidden radio buttons to control view -->
+    <input type="radio" id="back" name="teacher-toggle" hidden checked>
+    <c:forEach var="teacher" items="${paginatedTeachers}" varStatus="loop">
+        <input type="radio" id="view${loop.index + 1}" name="teacher-toggle" hidden>
+    </c:forEach>
+
+    <!-- Teachers Table with Expandable Details -->
+    <div class="table-responsive draggable-table-container table-view">
+        <table class="table table-striped mb-0" id="teachersTable">
+            <thead class="thead-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Photo</th>
+                    <th class="sortable">Name</th>
+                    <th class="sortable">Gender</th>
+                    <th>Email</th>
+                    <th>Subject</th>
+                    <th>Qualification</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <c:choose>
+                    <c:when test="${empty paginatedTeachers}">
+                        <tr>
+                            <td colspan="10" style="text-align:center; color: #f44336; font-weight: bold;">
+                                <c:choose>
+                                    <c:when test="${not empty param.search or not empty param.genderFilter or not empty param.statusFilter}">
+                                        No teachers found matching your filters
+                                    </c:when>
+                                    <c:otherwise>
+                                        No teachers available
+                                    </c:otherwise>
+                                </c:choose>
+                            </td>
+                        </tr>
+                    </c:when>
+                    <c:otherwise>
+                        <c:forEach var="teacher" items="${paginatedTeachers}" varStatus="loop">
+                            <tr class="clickable-row" data-target="view${loop.index + 1}" data-id="${teacher.id}">
+                                <td>${(currentPage - 1) * 5 + loop.index + 1}</td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${not empty teacher.profileImage}">
+                                            <img src="data:image/jpeg;base64,${teacher.imageBase64}" 
+                                                 alt="${teacher.fullName}" 
+                                                 class="teacher-img rounded-circle">
+                                        </c:when>
+                                        <c:otherwise>
+                                            <img src="${pageContext.request.contextPath}/assets/images/faces/face${loop.index % 5 + 1}.jpg" 
+                                                 alt="Default" 
+                                                 class="teacher-img rounded-circle">
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td class="highlight-target">${teacher.fullName}</td>
+                                <td class="highlight-target">${teacher.gender}</td>
+                                <td class="highlight-target">${teacher.email}</td>
+                                <td class="highlight-target">${teacher.subject}</td>
+                                <td class="highlight-target">${teacher.qualification}</td>
+                                <td class="highlight-target">${teacher.phone}</td>
+                                <td>
+                                    <span class="status-badge">${teacher.status}</span>
+                                </td>
+                                <td>
+                                    <a href="EditTeacherServlet?id=${teacher.id}" class="btn btn-sm btn-icon btn-edit">
+                                        <i class="mdi mdi-pencil"></i>
+                                    </a>
+                                    <form action="DeleteTeacherServlet" method="post" style="display:inline;">
+                                        <input type="hidden" name="teacherId" value="${teacher.id}">
+                                        <button type="submit" class="btn btn-sm btn-icon btn-delete" onclick="return confirm('Are you sure?')">
+                                            <i class="mdi mdi-delete"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </c:otherwise>
+                </c:choose>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Teacher Detail Cards -->
+    <c:forEach var="teacher" items="${paginatedTeachers}" varStatus="loop">
+        <div class="card-detail card${loop.index + 1} position-relative p-3">
+            <!-- Manage Button (Top Right) -->
+            <a href="manage_teacher.jsp"><button class="btn btn-info position-absolute" style="top: 22px; right: 42px; z-index: 1;">
+                ?  Manage
+            </button></a>
+
+            <div class="card-content text-start">
+                <c:choose>
+                    <c:when test="${not empty teacher.profileImage}">
+                        <img src="data:image/jpeg;base64,${teacher.imageBase64}" 
+                             alt="${teacher.fullName}" 
+                             class="teacher-img rounded-circle">
+                    </c:when>
+                    <c:otherwise>
+                        <img src="${pageContext.request.contextPath}/assets/images/faces/face${loop.index % 5 + 1}.jpg" 
+                             alt="Default" 
+                             class="teacher-img rounded-circle">
+                    </c:otherwise>
+                </c:choose>
+                
+                <h4>${teacher.fullName} <span class="status-badge">${teacher.status}</span></h4>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li><strong>Teacher ID:</strong> ${teacher.id}</li>
+                            <li><strong>Gender:</strong> ${teacher.gender}</li>
+                            <li><strong>Email:</strong> ${teacher.email}</li>
+                            <li><strong>Phone:</strong> ${teacher.phone}</li>
+                            <li><strong>Subject:</strong> ${teacher.subject}</li>
+                            <li><strong>Qualification:</strong> ${teacher.qualification}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul>
+                            <!-- Additional info can be added here -->
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <h5></h5>
+                        <p></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Back Button -->
+            <label for="back" class="btn btn-outline-info position-absolute" style="bottom: 20px; left: 20px;">
+                <i class="mdi mdi-arrow-left"></i> Back to List
+            </label>
+        </div>
+    </c:forEach>
+
+    <!-- Table Footer Row with Entry Info & Pagination -->
+    <c:if test="${not empty paginatedTeachers and totalPages > 0}">
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap">
+            <!-- Entry Count Info (Left) -->
+            <div class="table-info text-muted small">
+                Showing <strong>${startItem}</strong> to <strong>${endItem}</strong> of <strong>${totalItems}</strong> entries
+                <c:if test="${not empty param.search or not empty param.genderFilter or not empty param.statusFilter}">
+                    (Filtered Results)
+                </c:if>
+            </div>
+
+            <!-- Pagination (Right) -->
+            <nav>
+                <ul class="pagination mb-0">
+                    <!-- Previous Button -->
+                    <c:choose>
+                        <c:when test="${currentPage == 1}">
+                            <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                        </c:when>
+                        <c:otherwise>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=${currentPage - 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Previous</a>
+                            </li>
+                        </c:otherwise>
+                    </c:choose>
+                    
+                    <!-- Page Numbers -->
+                    <c:forEach begin="1" end="${totalPages}" var="pageNum">
+                        <c:choose>
+                            <c:when test="${pageNum == currentPage}">
+                                <li class="page-item active"><span class="page-link">${pageNum}</span></li>
+                            </c:when>
+                            <c:otherwise>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">${pageNum}</a>
+                                </li>
+                            </c:otherwise>
+                        </c:choose>
+                    </c:forEach>
+                    
+                    <!-- Next Button -->
+                    <c:choose>
+                        <c:when test="${currentPage == totalPages}">
+                            <li class="page-item disabled"><span class="page-link">Next</span></li>
+                        </c:when>
+                        <c:otherwise>
+                            <li class="page-item">
+                                <a class="page-link" href="?page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Next</a>
+                            </li>
+                        </c:otherwise>
+                    </c:choose>
+                </ul>
+            </nav>
+        </div>
+    </c:if>
+</c:set>
+
+<!-- Set additional CSS for this page -->
+<c:set var="additionalCSS" scope="request">
+    <style>
+        .card-detail {
+            display: none;
+            background-color: #191c24;
+            color: #d6d6d6;
+            padding: 40px 30px;
+            margin-top: 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.05);
+            position: relative;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .teacher-img {
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        .teacher-img:hover {
+            transform: scale(1.5);
+        }
+
+        .card-detail h4 {
+            text-align: center;
+            color: #81d4fa;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 40px;
+        }
+
+        .card-detail ul {
+            margin-left: 20px;
+            padding: 0;
+            list-style: none;
+            line-height: 2;
+            font-size: 1.00rem;
+        }
+
+        .card-detail .teacher-img {
+            position: absolute;
+            top: 50%;
+            right: 50px;
+            transform: translateY(-55%);
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border: 2px solid #81d4fa;
+            box-shadow: 0 0 15px rgba(129, 212, 250, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card-detail .teacher-img:hover {
+            transform: translateY(-55%) scale(1.2);
+        }
+
+        .btn-outline-info {
+            color: #81d4fa;
+            border-color: #81d4fa;
+        }
+
+        .btn-outline-info:hover {
+            background-color: #81d4fa;
+            color: #191c24;
+            border-color: #81d4fa;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #teachersTable tbody tr {
+            background-color: transparent;
+            color: #b8b8b8;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-badge {
+            display: inline-block;
+            margin: 8px auto 20px;
+            padding: 5px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 20px;
+            background-color: #e6f4ea;
+            margin-left: 20px;
+            color: #1a6e2e;
+            text-align: center;
+            border: 1px solid #28a745;
+            box-shadow: 0 0 8px rgba(40, 167, 69, 0.2);
+        }
+
+        .status-badge-leave {
+            display: inline-block;
+            margin: 8px auto 20px;
+            padding: 5px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 20px;
+            background-color: #e6f4ea;
+            color: #aca100;
+            border: 1px solid #ffe600;
+            margin-left: 20px;
+            text-align: center;
+        }
+
+        #teachersTable tbody tr:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        #teachersTable .badge-success {
+            background-color: #2e7d32;
+            color: #e3fbe5;
+        }
+
+        #teachersTable .badge-warning {
+            background-color: #b58900;
+            color: #fff9e6;
+        }
+
+        #teachersTable .badge-danger {
+            background-color: #b22222;
+            color: #fceaea;
+        }
+
+        .teacher-img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+        }
+
+        tr {
+            color:aliceblue;
+        }
+
+        .sortable {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .sortable i {
+            margin-left: 5px;
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+
+        .pagination .page-link {
+            background-color: #1e1e1e;
+            color: #81d4fa;
+            border: 1px solid #2f2f2f;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            margin-left: 4px;
+            border-radius: 4px;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #81d4fa;
+            color: #121212;
+            font-weight: bold;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #39414b;
+            color: #ffffff;
+        }
+
+        .table-info {
+            color: #b0b0b0;
+            font-size: 0.90rem;
+            padding-left: 4px;
+            background-color: transparent !important;
+        }
+
+        .table-info strong {
+            color: #b1b1b1;
+        }
+
+        #teachersTable th,
+        #teachersTable td {
+            vertical-align: middle;
+        }
+
+        /* Table body styling - transparent and no borders */
+        #teachersTable tbody tr {
+            background-color: transparent !important;
+        }
+        
+        #teachersTable tbody td {
+            border: none !important;
+            background-color: transparent !important;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* View toggle styles */
+        #view1:checked ~ .table-view, 
+        #view2:checked ~ .table-view, 
+        #view3:checked ~ .table-view, 
+        #view4:checked ~ .table-view, 
+        #view5:checked ~ .table-view {
+            display: none;
+        }
+        #view1:checked ~ .card1,
+        #view2:checked ~ .card2,
+        #view3:checked ~ .card4,
+        #view4:checked ~ .card4,
+        #view5:checked ~ .card5 {
+            display: block;
+        }
+        #back:checked ~ .table-view {
+            display: block;
+        }
+        #back:checked ~ .card-detail {
+            display: none;
+        }
+
+        .course-img {
+            max-width: 100px;
+            max-height: 100px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #81d4fa;
+            font-weight: bold;
+        } 
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #81d4fa;
+            box-shadow: 0 0 5px rgba(129, 212, 250, 0.3);
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #2c2c2c;
+        }
+
+        /* Search highlight styling */
+        .highlight {
+            background-color: #ffeb3b;
+            color: #000;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+            box-shadow: 0 0 3px rgba(255, 235, 59, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+
+        .highlighted-row {
+            background-color: rgba(255, 235, 59, 0.1) !important;
+            border-left: 3px solid #ffeb3b !important;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 3px rgba(255, 235, 59, 0.5); }
+            50% { box-shadow: 0 0 8px rgba(255, 235, 59, 0.8); }
+            100% { box-shadow: 0 0 3px rgba(255, 235, 59, 0.5); }
+        }
+        
+        /* Filter styles */
+        #teacherSearch,
+        #genderFilter,
+        #statusFilter {
+            box-shadow: none;
+            transition: 0.3s ease;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+
+        #teacherSearch:focus,
+        #genderFilter:focus,
+        #statusFilter:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #a5b4fc;
+            border-color: #81d4fa;
+        }
+    </style>
+</c:set>
+
+<!-- Set additional JavaScript for this page -->
+<c:set var="additionalScripts" scope="request">
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Apply search highlights on page load
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchParam = urlParams.get('search');
+            
+            if (searchParam) {
+                // Apply highlights after a short delay to ensure DOM is ready
+                setTimeout(() => {
+                    applySearchHighlights(searchParam);
+                }, 100);
+            }
+            
+            // Make table rows clickable to show detail cards
+            document.querySelectorAll('.clickable-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const targetId = row.getAttribute('data-target');
+                    document.getElementById(targetId).checked = true;
+                });
+            });
+
+            // Search functionality - Auto-submit on Enter key
+            document.getElementById('teacherSearch').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    // Remove page parameter when searching (go to page 1)
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('page');
+                    document.getElementById('filterForm').action = url.toString();
+                    document.getElementById('filterForm').submit();
+                }
+            });
+
+            // Add debouncing for search input
+            document.getElementById('teacherSearch').addEventListener('input', function() {
+                const searchTerm = this.value.trim();
+                
+                // Client-side highlighting while typing
+                applySearchHighlights(searchTerm);
+                
+                clearTimeout(this.searchTimer);
+                this.searchTimer = setTimeout(() => {
+                    if (searchTerm.length >= 3 || searchTerm.length === 0) {
+                        // Remove page parameter when searching (go to page 1)
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('page');
+                        document.getElementById('filterForm').action = url.toString();
+                        document.getElementById('filterForm').submit();
+                    }
+                }, 800);
+            });
+
+            // Gender filter - Auto-submit on change
+            document.getElementById('genderFilter').addEventListener('change', function() {
+                // Remove page parameter when filtering (go to page 1)
+                const url = new URL(window.location.href);
+                url.searchParams.delete('page');
+                document.getElementById('filterForm').action = url.toString();
+                document.getElementById('filterForm').submit();
+            });
+
+            // Status filter - Auto-submit on change
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                // Remove page parameter when filtering (go to page 1)
+                const url = new URL(window.location.href);
+                url.searchParams.delete('page');
+                document.getElementById('filterForm').action = url.toString();
+                document.getElementById('filterForm').submit();
+            });
+        
+            // This is for Universal Search
+            const urlParams2 = new URLSearchParams(window.location.search);
+            const searchQuery = urlParams2.get('searchQuery');
+            const highlightId = urlParams2.get('highlightId');
+            
+            if (searchQuery) {
+                document.getElementById('teacherSearch').value = searchQuery;
+                applySearchHighlights(searchQuery);
+            }
+            
+            if (highlightId) {
+                const row = document.querySelector(`tr[data-id="${highlightId}"]`);
+                if (row) {
+                    row.classList.add('highlighted-row');
+                    row.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    
+                    setTimeout(() => {
+                        row.classList.remove('highlighted-row');
+                    }, 3000);
+                }
+            }
+        });
+        
+        // Utility functions for highlighting
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function highlightSearchTerm(card, term) {
+            if (!term) return;
+            const search = term.trim().toLowerCase();
+            if (!search) return;
+            
+            const targets = card.querySelectorAll('.highlight-target');
+            targets.forEach(target => {
+                if (!target.dataset.originalHtml) {
+                    target.dataset.originalHtml = target.innerHTML;
+                }
+                const text = target.textContent || '';
+                const lowerText = text.toLowerCase();
+
+                let startIndex = 0;
+                let result = '';
+                let idx;
+                while ((idx = lowerText.indexOf(search, startIndex)) !== -1) {
+                    result += escapeHtml(text.slice(startIndex, idx));
+                    result += '<span class="highlight">' + escapeHtml(text.slice(idx, idx + search.length)) + '</span>';
+                    startIndex = idx + search.length;
+                }
+                result += escapeHtml(text.slice(startIndex));
+
+                target.innerHTML = result;
+            });
+        }
+
+        function removeHighlights(card) {
+            const targets = card.querySelectorAll('.highlight-target');
+            targets.forEach(target => {
+                if (target.dataset.originalHtml !== undefined) {
+                    target.innerHTML = target.dataset.originalHtml;
+                    delete target.dataset.originalHtml;
+                } else {
+                    const spans = target.querySelectorAll('span.highlight');
+                    spans.forEach(span => span.replaceWith(document.createTextNode(span.textContent)));
+                }
+            });
+        }
+
+        function applySearchHighlights(searchTerm) {
+            const tableBody = document.querySelector('#teachersTable tbody');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            // First remove all highlights
+            rows.forEach(row => {
+                removeHighlights(row);
+                row.classList.remove('highlighted-row');
+            });
+            
+            if (!searchTerm || searchTerm.trim() === '') return;
+            
+            const term = searchTerm.trim().toLowerCase();
+            
+            rows.forEach(row => {
+                const targets = row.querySelectorAll('.highlight-target');
+                let rowHasMatch = false;
+                
+                targets.forEach(target => {
+                    const text = target.textContent || '';
+                    if (text.toLowerCase().includes(term)) {
+                        rowHasMatch = true;
+                    }
+                });
+                
+                if (rowHasMatch) {
+                    highlightSearchTerm(row, term);
+                    row.classList.add('highlighted-row');
+                }
+            });
+        }
+
+        function clearAllHighlights() {
+            const tableBody = document.querySelector('#teachersTable tbody');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                removeHighlights(row);
+                row.classList.remove('highlighted-row');
+            });
+        }
+        
+        function clearAllFilters() {
+            window.location.href = 'view_teacher.jsp';
+        }
+    </script>
+    <script>
+        window.onload = function() {
+            const navEntries = performance.getEntriesByType("navigation");
+            if (navEntries.length > 0 && navEntries[0].type === "reload") {
+                const isLoggedIn = <%= isUserLoggedIn %>;
+                if (isLoggedIn) {
+                    window.location.replace("LoginForm.jsp");
+                }
+            }
+        };
+    </script>
+</c:set>
+
+<!-- Include the base template -->
+<%@ include file="Base.jsp" %>
