@@ -25,178 +25,13 @@
 <%   
     // Set page title for template
     request.setAttribute("pageTitle", "View Teachers");
+    
+    if (request.getAttribute("paginatedTeachers") == null) {
+        request.getRequestDispatcher("/AllSearchandPagination?type=teachers").forward(request, response);
+        return;
+    }
 %>
 
-<%
-    // Handle search parameter - MUST be BEFORE pagination
-    String searchParam = request.getParameter("search");
-    
-    // Handle filter parameters
-    String genderFilter = request.getParameter("genderFilter");
-    String statusFilter = request.getParameter("statusFilter");
-    
-    List<Teacher> allTeachers = null;
-    
-    if (request.getAttribute("teachers") == null) {
-        try {
-            DAO teacherDAO = new DAO();
-            allTeachers = teacherDAO.getAllTeachers();
-            
-            // Apply search filter if search parameter exists
-            if (searchParam != null && !searchParam.trim().isEmpty()) {
-                String searchTerm = searchParam.toLowerCase().trim();
-                List<Teacher> filteredTeachers = new ArrayList<>();
-                
-                for (Teacher teacher : allTeachers) {
-                    // Search in multiple fields with null checks
-                    String teacherName = teacher.getFullName() != null ? teacher.getFullName().toLowerCase() : "";
-                    String teacherEmail = teacher.getEmail() != null ? teacher.getEmail().toLowerCase() : "";
-                    String teacherSubject = teacher.getSubject() != null ? teacher.getSubject().toLowerCase() : "";
-                    String teacherQualification = teacher.getQualification() != null ? teacher.getQualification().toLowerCase() : "";
-                    
-                    if (teacherName.contains(searchTerm) ||
-                        teacherEmail.contains(searchTerm) ||
-                        teacherSubject.contains(searchTerm) ||
-                        teacherQualification.contains(searchTerm)) {
-                        filteredTeachers.add(teacher);
-                    }
-                }
-                allTeachers = filteredTeachers;
-            }
-            
-            // Apply gender filter
-            if (genderFilter != null && !genderFilter.trim().isEmpty()) {
-                List<Teacher> filteredByGender = new ArrayList<>();
-                String filterGender = genderFilter.trim();
-                
-                for (Teacher teacher : allTeachers) {
-                    if (teacher.getGender() != null && 
-                        teacher.getGender().equalsIgnoreCase(filterGender)) {
-                        filteredByGender.add(teacher);
-                    }
-                }
-                allTeachers = filteredByGender;
-            }
-            
-            // Apply status filter
-            if (statusFilter != null && !statusFilter.trim().isEmpty()) {
-                List<Teacher> filteredByStatus = new ArrayList<>();
-                String filterStatus = statusFilter.trim();
-                
-                for (Teacher teacher : allTeachers) {
-                    if (teacher.getStatus() != null && 
-                        teacher.getStatus().equalsIgnoreCase(filterStatus)) {
-                        filteredByStatus.add(teacher);
-                    }
-                }
-                allTeachers = filteredByStatus;
-            }
-            
-            request.setAttribute("teachers", allTeachers);
-        } catch (SQLException e) {
-            request.setAttribute("error", "Database error: " + e.getMessage());
-        }
-    } else {
-        allTeachers = (List<Teacher>) request.getAttribute("teachers");
-        
-        // Apply search filter to existing teachers if search parameter exists
-        if (searchParam != null && !searchParam.trim().isEmpty()) {
-            String searchTerm = searchParam.toLowerCase().trim();
-            List<Teacher> filteredTeachers = new ArrayList<>();
-            
-            for (Teacher teacher : allTeachers) {
-                // Search in multiple fields with null checks
-                String teacherName = teacher.getFullName() != null ? teacher.getFullName().toLowerCase() : "";
-                String teacherEmail = teacher.getEmail() != null ? teacher.getEmail().toLowerCase() : "";
-                String teacherSubject = teacher.getSubject() != null ? teacher.getSubject().toLowerCase() : "";
-                String teacherQualification = teacher.getQualification() != null ? teacher.getQualification().toLowerCase() : "";
-                
-                if (teacherName.contains(searchTerm) ||
-                    teacherEmail.contains(searchTerm) ||
-                    teacherSubject.contains(searchTerm) ||
-                    teacherQualification.contains(searchTerm)) {
-                    filteredTeachers.add(teacher);
-                }
-            }
-            allTeachers = filteredTeachers;
-        }
-        
-        // Apply gender filter
-        if (genderFilter != null && !genderFilter.trim().isEmpty()) {
-            List<Teacher> filteredByGender = new ArrayList<>();
-            String filterGender = genderFilter.trim();
-            
-            for (Teacher teacher : allTeachers) {
-                if (teacher.getGender() != null && 
-                    teacher.getGender().equalsIgnoreCase(filterGender)) {
-                    filteredByGender.add(teacher);
-                }
-            }
-            allTeachers = filteredByGender;
-        }
-        
-        // Apply status filter
-        if (statusFilter != null && !statusFilter.trim().isEmpty()) {
-            List<Teacher> filteredByStatus = new ArrayList<>();
-            String filterStatus = statusFilter.trim();
-            
-            for (Teacher teacher : allTeachers) {
-                if (teacher.getStatus() != null && 
-                    teacher.getStatus().equalsIgnoreCase(filterStatus)) {
-                    filteredByStatus.add(teacher);
-                }
-            }
-            allTeachers = filteredByStatus;
-        }
-    }
-    
-    // Pagination parameters
-    int pageSize = 5; // Number of entries per page
-    int currentPage = 1;
-    int totalPages = 0;
-    List<Teacher> paginatedTeachers = new ArrayList<>();
-    
-    if (allTeachers != null && !allTeachers.isEmpty()) {
-        // Get page number from request parameter
-        String pageParam = request.getParameter("page");
-        if (pageParam != null && !pageParam.isEmpty()) {
-            try {
-                currentPage = Integer.parseInt(pageParam);
-                if (currentPage < 1) {
-                    currentPage = 1;
-                }
-            } catch (NumberFormatException e) {
-                currentPage = 1;
-            }
-        }
-        
-        // Calculate pagination
-        int totalItems = allTeachers.size();
-        totalPages = (int) Math.ceil((double) totalItems / pageSize);
-        
-        // Ensure current page is within bounds
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-        
-        // Calculate start and end indices
-        int startIndex = (currentPage - 1) * pageSize;
-        int endIndex = Math.min(startIndex + pageSize, totalItems);
-        
-        // Get paginated teachers
-        for (int i = startIndex; i < endIndex; i++) {
-            paginatedTeachers.add(allTeachers.get(i));
-        }
-        
-        // Set pagination attributes
-        request.setAttribute("paginatedTeachers", paginatedTeachers);
-        request.setAttribute("currentPage", currentPage);
-        request.setAttribute("totalPages", totalPages);
-        request.setAttribute("totalItems", totalItems);
-        request.setAttribute("startItem", startIndex + 1);
-        request.setAttribute("endItem", endIndex);
-    }
-%>
 
 <!-- Set template variables -->
 <c:set var="pageContent" scope="request">
@@ -231,7 +66,8 @@
     </c:if>
     
     <!-- Filters Card Section -->
-    <form method="get" action="view_teacher.jsp" id="filterForm">
+    <form method="get" action="${pageContext.request.contextPath}/AllSearchandPagination" id="filterForm">
+    <input type="hidden" name="type" value="teachers">    
     <div class="card mb-3 border-0" style="background-color: transparent;">
         <div class="card-body py-2 px-3">
             <div class="row align-items-end g-3">
@@ -463,7 +299,7 @@
                         </c:when>
                         <c:otherwise>
                             <li class="page-item">
-                                <a class="page-link" href="?page=${currentPage - 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Previous</a>
+                                <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?page=${currentPage - 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Previous</a>
                             </li>
                         </c:otherwise>
                     </c:choose>
@@ -476,7 +312,7 @@
                             </c:when>
                             <c:otherwise>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">${pageNum}</a>
+                                    <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">${pageNum}</a>
                                 </li>
                             </c:otherwise>
                         </c:choose>
@@ -489,7 +325,7 @@
                         </c:when>
                         <c:otherwise>
                             <li class="page-item">
-                                <a class="page-link" href="?page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Next</a>
+                                <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.genderFilter}">&genderFilter=${param.genderFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Next</a>
                             </li>
                         </c:otherwise>
                     </c:choose>
@@ -1001,7 +837,7 @@
         }
         
         function clearAllFilters() {
-            window.location.href = 'view_teacher.jsp';
+            window.location.href = '${pageContext.request.contextPath}/AllSearchandPagination?type=teachers';
         }
     </script>
     <script>

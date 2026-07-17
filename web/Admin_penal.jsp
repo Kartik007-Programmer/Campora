@@ -225,7 +225,9 @@ try {
                         <p class="text-muted mb-0">${event.description}</p>
                       </div>
                       <div class="mr-auto text-sm-right pt-2 pt-sm-0">
-                        <p class="text-muted"><fmt:formatDate value="${event.date}" pattern="MMM dd, yyyy" /></p>
+                        <p class="text-muted m-2">
+                            <fmt:formatDate value="${event.date}" pattern="MMM dd, yyyy" />
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -415,7 +417,7 @@ try {
                         </div>
                       </div>
                       <div class="col-md-7">
-                        <div id="audience-map" class="vector-map"></div>
+                        <div id="audience-map" class="vector-map bg-dark"></div>
                       </div>
                     </div>
                   </div>

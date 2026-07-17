@@ -28,193 +28,14 @@
     // Get today's date for status comparison
     Date today = new Date();
     request.setAttribute("today", today);
+    
+    if (request.getAttribute("paginatedEvents") == null) {
+        request.getRequestDispatcher("/AllSearchandPagination?type=events").forward(request, response);
+        return;
+    }
 %>
 
-<%
-    // Handle search parameter - MUST be BEFORE pagination
-    String searchParam = request.getParameter("search");
-    
-    // Handle filter parameters
-    String categoryFilter = request.getParameter("categoryFilter");
-    String statusFilter = request.getParameter("statusFilter");
-    
-    List<Event> allEvents = null;
-    
-    if (request.getAttribute("events") == null) {
-        try {
-            DAO eventDAO = new DAO();
-            allEvents = eventDAO.getAllEvents();
-            List<String> category = eventDAO.getAllCategoriesOfEvents(true);
-            request.setAttribute("category", category);
-            
-            // Apply search filter if search parameter exists
-            if (searchParam != null && !searchParam.trim().isEmpty()) {
-                String searchTerm = searchParam.toLowerCase().trim();
-                List<Event> filteredEvents = new ArrayList<>();
-                
-                for (Event event : allEvents) {
-                    // Search in multiple fields with null checks
-                    String eventTitle = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
-                    String eventCategory = event.getCategory() != null ? event.getCategory().toLowerCase() : "";
-                    String eventDescription = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
-                    
-                    if (eventTitle.contains(searchTerm) ||
-                        eventCategory.contains(searchTerm) ||
-                        eventDescription.contains(searchTerm)) {
-                        filteredEvents.add(event);
-                    }
-                }
-                allEvents = filteredEvents;
-            }
-            
-            // Apply category filter
-            if (categoryFilter != null && !categoryFilter.trim().isEmpty()) {
-                List<Event> filteredByCategory = new ArrayList<>();
-                String filterCategory = categoryFilter.trim();
-                
-                for (Event event : allEvents) {
-                    if (event.getCategory() != null && 
-                        event.getCategory().equalsIgnoreCase(filterCategory)) {
-                        filteredByCategory.add(event);
-                    }
-                }
-                allEvents = filteredByCategory;
-            }
-            
-            // Apply status filter
-            if (statusFilter != null && !statusFilter.trim().isEmpty()) {
-                List<Event> filteredByStatus = new ArrayList<>();
-                String filterStatus = statusFilter.trim();
-                Date todayFilter = new Date();
-                
-                for (Event event : allEvents) {
-                    Date eventDate = event.getDate();
-                    boolean matches = false;
-                    
-                    if (filterStatus.equalsIgnoreCase("Upcoming")) {
-                        matches = (eventDate != null && eventDate.after(todayFilter));
-                    } else if (filterStatus.equalsIgnoreCase("Completed")) {
-                        matches = (eventDate != null && (eventDate.before(todayFilter) || eventDate.equals(todayFilter)));
-                    }
-                    
-                    if (matches) {
-                        filteredByStatus.add(event);
-                    }
-                }
-                allEvents = filteredByStatus;
-            }
-            
-            request.setAttribute("events", allEvents);
-        } catch (SQLException e) {
-            request.setAttribute("error", "Database error: " + e.getMessage());
-        }
-    } else {
-        allEvents = (List<Event>) request.getAttribute("events");
-        
-        // Apply search filter to existing events if search parameter exists
-        if (searchParam != null && !searchParam.trim().isEmpty()) {
-            String searchTerm = searchParam.toLowerCase().trim();
-            List<Event> filteredEvents = new ArrayList<>();
-            
-            for (Event event : allEvents) {
-                String eventTitle = event.getTitle() != null ? event.getTitle().toLowerCase() : "";
-                String eventCategory = event.getCategory() != null ? event.getCategory().toLowerCase() : "";
-                String eventDescription = event.getDescription() != null ? event.getDescription().toLowerCase() : "";
-                
-                if (eventTitle.contains(searchTerm) ||
-                    eventCategory.contains(searchTerm) ||
-                    eventDescription.contains(searchTerm)) {
-                    filteredEvents.add(event);
-                }
-            }
-            allEvents = filteredEvents;
-        }
-        
-        // Apply category filter
-        if (categoryFilter != null && !categoryFilter.trim().isEmpty()) {
-            List<Event> filteredByCategory = new ArrayList<>();
-            String filterCategory = categoryFilter.trim();
-            
-            for (Event event : allEvents) {
-                if (event.getCategory() != null && 
-                    event.getCategory().equalsIgnoreCase(filterCategory)) {
-                    filteredByCategory.add(event);
-                }
-            }
-            allEvents = filteredByCategory;
-        }
-        
-        // Apply status filter
-        if (statusFilter != null && !statusFilter.trim().isEmpty()) {
-            List<Event> filteredByStatus = new ArrayList<>();
-            String filterStatus = statusFilter.trim();
-            Date todayFilter = new Date();
-            
-            for (Event event : allEvents) {
-                Date eventDate = event.getDate();
-                boolean matches = false;
-                
-                if (filterStatus.equalsIgnoreCase("Upcoming")) {
-                    matches = (eventDate != null && eventDate.after(todayFilter));
-                } else if (filterStatus.equalsIgnoreCase("Completed")) {
-                    matches = (eventDate != null && (eventDate.before(todayFilter) || eventDate.equals(todayFilter)));
-                }
-                
-                if (matches) {
-                    filteredByStatus.add(event);
-                }
-            }
-            allEvents = filteredByStatus;
-        }
-    }
-    
-    // Pagination parameters
-    int pageSize = 5; // Number of entries per page
-    int currentPage = 1;
-    int totalPages = 0;
-    List<Event> paginatedEvents = new ArrayList<>();
-    
-    if (allEvents != null && !allEvents.isEmpty()) {
-        // Get page number from request parameter
-        String pageParam = request.getParameter("page");
-        if (pageParam != null && !pageParam.isEmpty()) {
-            try {
-                currentPage = Integer.parseInt(pageParam);
-                if (currentPage < 1) {
-                    currentPage = 1;
-                }
-            } catch (NumberFormatException e) {
-                currentPage = 1;
-            }
-        }
-        
-        // Calculate pagination
-        int totalItems = allEvents.size();
-        totalPages = (int) Math.ceil((double) totalItems / pageSize);
-        
-        // Ensure current page is within bounds
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-        
-        // Calculate start and end indices
-        int startIndex = (currentPage - 1) * pageSize;
-        int endIndex = Math.min(startIndex + pageSize, totalItems);
-        
-        // Get paginated events
-        for (int i = startIndex; i < endIndex; i++) {
-            paginatedEvents.add(allEvents.get(i));
-        }
-        
-        // Set pagination attributes
-        request.setAttribute("paginatedEvents", paginatedEvents);
-        request.setAttribute("currentPage", currentPage);
-        request.setAttribute("totalPages", totalPages);
-        request.setAttribute("totalItems", totalItems);
-        request.setAttribute("startItem", startIndex + 1);
-        request.setAttribute("endItem", endIndex);
-    }
-%>
+
 
 <c:set var="pageTitle" value="View Events - Campora Admin" scope="request" />
 
@@ -228,6 +49,13 @@
             border-radius: 4px;
         }
         
+        .event-img:hover {
+            transform: scale(1.5);
+        }
+        
+        .event-img {
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+        }
         .status-badge {
             display: inline-block;
             margin: 8px auto 20px;
@@ -513,7 +341,8 @@
     </c:if>
 
     <!-- Filters Card Section -->
-    <form method="get" action="view_events.jsp" id="filterForm">
+    <form method="get" action="${pageContext.request.contextPath}/AllSearchandPagination" id="filterForm">
+    <input type="hidden" name="type" value="events">
     <div class="card mb-3 border-0" style="background-color: transparent;">
         <div class="card-body py-2 px-3">
             <div class="row align-items-end g-3">
@@ -540,7 +369,7 @@
                     <select class="form-control form-control-sm" id="categoryFilter" name="categoryFilter">
                         <option value="">All</option>
                         <c:forEach var="ccategories" items="${category}">
-                        <option value="${ccategories}" ${param.categoryFilter == '${ccategories}' ? 'selected' : ''}>${ccategories}</option>
+                        <option value="${ccategories}" ${param.categoryFilter == ccategories ? 'selected' : ''}>${ccategories}</option>
                         </c:forEach>
                     </select>
                 </div>
@@ -708,7 +537,10 @@
                         </c:when>
                         <c:otherwise>
                             <li class="page-item">
-                                <a class="page-link" href="?page=${currentPage - 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Previous</a>
+                                <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?page=${currentPage - 1}
+                                   <c:if test="${not empty param.search}">&search=${param.search}</c:if>
+                                   <c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if>
+                                   <c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Previous</a>
                             </li>
                         </c:otherwise>
                     </c:choose>
@@ -721,7 +553,7 @@
                             </c:when>
                             <c:otherwise>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">${pageNum}</a>
+                                    <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">${pageNum}</a>
                                 </li>
                             </c:otherwise>
                         </c:choose>
@@ -734,7 +566,7 @@
                         </c:when>
                         <c:otherwise>
                             <li class="page-item">
-                                <a class="page-link" href="?page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Next</a>
+                                <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.statusFilter}">&statusFilter=${param.statusFilter}</c:if>">Next</a>
                             </li>
                         </c:otherwise>
                     </c:choose>
@@ -930,7 +762,7 @@
         }
         
         function clearAllFilters() {
-            window.location.href = 'view_events.jsp';
+            window.location.href = '${pageContext.request.contextPath}/AllSearchandPagination?type=events';
         }
     </script>
     <script>

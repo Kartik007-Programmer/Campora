@@ -49,7 +49,7 @@
                         <div class="col-12">
                             <form action="${pageContext.request.contextPath}/UniversalSearchServlet" method="post">
                                 <div class="form-group d-flex">
-                                    <input type="text" class="form-control" name="searchQuery" placeholder="Search Here" value="${searchQuery}">
+                                    <input type="text" class="form-control " name="searchQuery" placeholder="Search Here" value="${searchQuery}">
                                     <button type="submit" class="btn btn-primary ms-3">Search</button>
                                 </div>
                             </form>
@@ -242,6 +242,24 @@
         .no-search-query {
             color: #6c757d;
         }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #81d4fa;
+            box-shadow: 0 0 5px rgba(129, 212, 250, 0.3);
+            color: white;
+        }
+                
     </style>
 </c:set>
 

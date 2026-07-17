@@ -21,239 +21,14 @@
         rd.forward(request, response);
         return;
     }
+    
+    if (request.getAttribute("paginatedCourses") == null) {
+        request.getRequestDispatcher("/AllSearchandPagination?type=courses").forward(request, response);
+        return;
+    }
 %>
 
-<%
-    // Handle search parameter - MUST be BEFORE pagination
-    String searchParam = request.getParameter("search");
-    
-    // Handle filter parameters
-    String categoryFilter = request.getParameter("categoryFilter");
-    String ratingFilter = request.getParameter("ratingFilter");
-    String durationFilter = request.getParameter("durationFilter");
-    
-    List<Course> allCourses = null;
-    
-    if (request.getAttribute("courses") == null) {
-        try {
-            DAO courseDAO = new DAO();
-            allCourses = courseDAO.getAllCourses();
-            List<String> ccategories = courseDAO.getAllCategoriesOfCourses(true);
-            request.setAttribute("ccategories", ccategories);
-            
-            // Apply search filter if search parameter exists
-            if (searchParam != null && !searchParam.trim().isEmpty()) {
-                String searchTerm = searchParam.toLowerCase().trim();
-                List<Course> filteredCourses = new ArrayList<>();
-                
-                for (Course course : allCourses) {
-                    // Search in multiple fields with null checks
-                    String courseName = course.getName() != null ? course.getName().toLowerCase() : "";
-                    String courseCategory = course.getCategory() != null ? course.getCategory().toLowerCase() : "";
-                    String courseDescription = course.getDescription() != null ? course.getDescription().toLowerCase() : "";
-                    
-                    if (courseName.contains(searchTerm) ||
-                        courseCategory.contains(searchTerm) ||
-                        courseDescription.contains(searchTerm)) {
-                        filteredCourses.add(course);
-                    }
-                }
-                allCourses = filteredCourses;
-            }
-            
-            // Apply category filter
-            if (categoryFilter != null && !categoryFilter.trim().isEmpty()) {
-                List<Course> filteredByCategory = new ArrayList<>();
-                String filterCategory = categoryFilter.trim();
-                
-                for (Course course : allCourses) {
-                    if (course.getCategory() != null && 
-                        course.getCategory().equalsIgnoreCase(filterCategory)) {
-                        filteredByCategory.add(course);
-                    }
-                }
-                allCourses = filteredByCategory;
-            }
-            
-            // Apply rating filter
-            if (ratingFilter != null && !ratingFilter.trim().isEmpty()) {
-                List<Course> filteredByRating = new ArrayList<>();
-                int minRating = Integer.parseInt(ratingFilter.trim());
-                
-                for (Course course : allCourses) {
-                    if (course.getStar() >= minRating) {
-                        filteredByRating.add(course);
-                    }
-                }
-                allCourses = filteredByRating;
-            }
-            
-            // Apply duration filter
-            if (durationFilter != null && !durationFilter.trim().isEmpty()) {
-                List<Course> filteredByDuration = new ArrayList<>();
-                String durationRange = durationFilter.trim();
-                
-                for (Course course : allCourses) {
-                    int courseDuration = course.getDurationMonths();
-                    boolean matches = false;
-                    
-                    switch(durationRange) {
-                        case "1-3":
-                            matches = (courseDuration >= 1 && courseDuration <= 3);
-                            break;
-                        case "4-6":
-                            matches = (courseDuration >= 4 && courseDuration <= 6);
-                            break;
-                        case "7-12":
-                            matches = (courseDuration >= 7 && courseDuration <= 12);
-                            break;
-                        case "12+":
-                            matches = (courseDuration > 12);
-                            break;
-                    }
-                    
-                    if (matches) {
-                        filteredByDuration.add(course);
-                    }
-                }
-                allCourses = filteredByDuration;
-            }
-            
-            request.setAttribute("courses", allCourses);
-        } catch (SQLException e) {
-            request.setAttribute("error", "Database error: " + e.getMessage());
-        } catch (NumberFormatException e) {
-            request.setAttribute("error", "Invalid filter value");
-        }
-    } else {
-        allCourses = (List<Course>) request.getAttribute("courses");
-        
-        // Apply search filter to existing courses if search parameter exists
-        if (searchParam != null && !searchParam.trim().isEmpty()) {
-            String searchTerm = searchParam.toLowerCase().trim();
-            List<Course> filteredCourses = new ArrayList<>();
-            
-            for (Course course : allCourses) {
-                // Search in multiple fields with null checks
-                String courseName = course.getName() != null ? course.getName().toLowerCase() : "";
-                String courseCategory = course.getCategory() != null ? course.getCategory().toLowerCase() : "";
-                String courseDescription = course.getDescription() != null ? course.getDescription().toLowerCase() : "";
-                
-                if (courseName.contains(searchTerm) ||
-                    courseCategory.contains(searchTerm) ||
-                    courseDescription.contains(searchTerm)) {
-                    filteredCourses.add(course);
-                }
-            }
-            allCourses = filteredCourses;
-        }
-        
-        // Apply category filter
-        if (categoryFilter != null && !categoryFilter.trim().isEmpty()) {
-            List<Course> filteredByCategory = new ArrayList<>();
-            String filterCategory = categoryFilter.trim();
-            
-            for (Course course : allCourses) {
-                if (course.getCategory() != null && 
-                    course.getCategory().equalsIgnoreCase(filterCategory)) {
-                    filteredByCategory.add(course);
-                }
-            }
-            allCourses = filteredByCategory;
-        }
-        
-        // Apply rating filter
-        if (ratingFilter != null && !ratingFilter.trim().isEmpty()) {
-            List<Course> filteredByRating = new ArrayList<>();
-            int minRating = Integer.parseInt(ratingFilter.trim());
-            
-            for (Course course : allCourses) {
-                if (course.getStar() >= minRating) {
-                    filteredByRating.add(course);
-                }
-            }
-            allCourses = filteredByRating;
-        }
-        
-        // Apply duration filter
-        if (durationFilter != null && !durationFilter.trim().isEmpty()) {
-            List<Course> filteredByDuration = new ArrayList<>();
-            String durationRange = durationFilter.trim();
-            
-            for (Course course : allCourses) {
-                int courseDuration = course.getDurationMonths();
-                boolean matches = false;
-                
-                switch(durationRange) {
-                    case "1-3":
-                        matches = (courseDuration >= 1 && courseDuration <= 3);
-                        break;
-                    case "4-6":
-                        matches = (courseDuration >= 4 && courseDuration <= 6);
-                        break;
-                    case "7-12":
-                        matches = (courseDuration >= 7 && courseDuration <= 12);
-                        break;
-                    case "12+":
-                        matches = (courseDuration > 12);
-                        break;
-                }
-                
-                if (matches) {
-                    filteredByDuration.add(course);
-                }
-            }
-            allCourses = filteredByDuration;
-        }
-    }
-    
-    // Pagination parameters
-    int pageSize = 5; // Number of entries per page
-    int currentPage = 1;
-    int totalPages = 0;
-    List<Course> paginatedCourses = new ArrayList<>();
-    
-    if (allCourses != null && !allCourses.isEmpty()) {
-        // Get page number from request parameter
-        String pageParam = request.getParameter("page");
-        if (pageParam != null && !pageParam.isEmpty()) {
-            try {
-                currentPage = Integer.parseInt(pageParam);
-                if (currentPage < 1) {
-                    currentPage = 1;
-                }
-            } catch (NumberFormatException e) {
-                currentPage = 1;
-            }
-        }
-        
-        // Calculate pagination
-        int totalItems = allCourses.size();
-        totalPages = (int) Math.ceil((double) totalItems / pageSize);
-        
-        // Ensure current page is within bounds
-        if (currentPage > totalPages) {
-            currentPage = totalPages;
-        }
-        
-        // Calculate start and end indices
-        int startIndex = (currentPage - 1) * pageSize;
-        int endIndex = Math.min(startIndex + pageSize, totalItems);
-        
-        // Get paginated courses
-        for (int i = startIndex; i < endIndex; i++) {
-            paginatedCourses.add(allCourses.get(i));
-        }
-        
-        // Set pagination attributes
-        request.setAttribute("paginatedCourses", paginatedCourses);
-        request.setAttribute("currentPage", currentPage);
-        request.setAttribute("totalPages", totalPages);
-        request.setAttribute("totalItems", totalItems);
-        request.setAttribute("startItem", startIndex + 1);
-        request.setAttribute("endItem", endIndex);
-    }
-%>
+
 
 <!-- Set variables for base.jsp -->
 <c:set var="pageTitle" value="View Courses - Campora Admin" scope="request" />
@@ -273,11 +48,11 @@
             animation: fadeIn 0.3s ease-in-out;
         }
 
-        .teacher-img {
+        .course-img {
             transition: transform 0.2s ease, box-shadow 0.3s ease;
         }
 
-        .teacher-img:hover {
+        .course-img:hover {
             transform: scale(1.5);
         }
 
@@ -297,7 +72,7 @@
             font-size: 1.00rem;
         }
 
-        .card-detail .teacher-img {
+        .card-detail .course-img {
             position: absolute;
             top: 50%;
             right: 50px;
@@ -310,7 +85,7 @@
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        .card-detail .teacher-img:hover {
+        .card-detail .course-img:hover {
             transform: translateY(-55%) scale(1.2);
         }
 
@@ -385,7 +160,7 @@
             color: #fceaea;
         }
 
-        .teacher-img {
+        .course-img {
             width: 60px;
             height: 60px;
             object-fit: cover;
@@ -600,8 +375,9 @@
     </c:if>
 
     <!-- Filters Card Section -->
-    <form method="get" action="view_courses.jsp" id="filterForm">
-    <div class="card mb-3 border-0" style="background-color: transparent;">
+    <form method="get" action="${pageContext.request.contextPath}/AllSearchandPagination" id="filterForm">
+    <input type="hidden" name="type" value="courses">
+      <div class="card mb-3 border-0" style="background-color: transparent;">
         <div class="card-body py-2 px-3">
             <div class="row align-items-end g-3">
                 <div class="col-md-3">
@@ -627,7 +403,7 @@
                     <select class="form-control form-control-sm" id="categoryFilter" name="categoryFilter">
                         <option value="">All</option>
                         <c:forEach var="ccategories" items="${ccategories}">
-                        <option value="${ccategories}" ${param.categoryFilter == '${ccategories}' ? 'selected' : ''}>${ccategories}</option>
+                        <option value="${ccategories}" ${param.categoryFilter == ccategories ? 'selected' : ''}>${ccategories}</option>
                         </c:forEach>    
                     </select>
                 </div>
@@ -768,10 +544,10 @@
             <div class="card-content text-start">
                 <c:choose>
                     <c:when test="${not empty course.img}">
-                        <img src="data:image/jpeg;base64,${course.imageBase64}" alt="${course.name}" class="teacher-img mb-3" />
+                        <img src="data:image/jpeg;base64,${course.imageBase64}" alt="${course.name}" class="course-img mb-3" />
                     </c:when>
                     <c:otherwise>
-                        <img src="${pageContext.request.contextPath}/assets/images/no-image.png" alt="No image available" class="teacher-img mb-3" />
+                        <img src="${pageContext.request.contextPath}/assets/images/no-image.png" alt="No image available" class="course-img mb-3" />
                     </c:otherwise>
                 </c:choose>
                 <h4>${course.name}</h4>
@@ -810,7 +586,7 @@
                         </c:when>
                         <c:otherwise>
                             <li class="page-item">
-                                <a class="page-link" href="?page=${currentPage - 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.ratingFilter}">&ratingFilter=${param.ratingFilter}</c:if><c:if test="${not empty param.durationFilter}">&durationFilter=${param.durationFilter}</c:if>">Previous</a>
+                                <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=courses&page=${currentPage - 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.ratingFilter}">&ratingFilter=${param.ratingFilter}</c:if><c:if test="${not empty param.durationFilter}">&durationFilter=${param.durationFilter}</c:if>">Previous</a>
                             </li>
                         </c:otherwise>
                     </c:choose>
@@ -823,7 +599,7 @@
                             </c:when>
                             <c:otherwise>
                                 <li class="page-item">
-                                    <a class="page-link" href="?page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.ratingFilter}">&ratingFilter=${param.ratingFilter}</c:if><c:if test="${not empty param.durationFilter}">&durationFilter=${param.durationFilter}</c:if>">${pageNum}</a>
+                                    <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=courses&page=${pageNum}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.ratingFilter}">&ratingFilter=${param.ratingFilter}</c:if><c:if test="${not empty param.durationFilter}">&durationFilter=${param.durationFilter}</c:if>">${pageNum}</a>
                                 </li>
                             </c:otherwise>
                         </c:choose>
@@ -836,7 +612,7 @@
                         </c:when>
                         <c:otherwise>
                             <li class="page-item">
-                                <a class="page-link" href="?page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.ratingFilter}">&ratingFilter=${param.ratingFilter}</c:if><c:if test="${not empty param.durationFilter}">&durationFilter=${param.durationFilter}</c:if>">Next</a>
+                                <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=courses&page=${currentPage + 1}<c:if test="${not empty param.search}">&search=${param.search}</c:if><c:if test="${not empty param.categoryFilter}">&categoryFilter=${param.categoryFilter}</c:if><c:if test="${not empty param.ratingFilter}">&ratingFilter=${param.ratingFilter}</c:if><c:if test="${not empty param.durationFilter}">&durationFilter=${param.durationFilter}</c:if>">Next</a>
                             </li>
                         </c:otherwise>
                     </c:choose>
@@ -1042,7 +818,7 @@
         }
         
         function clearAllFilters() {
-            window.location.href = 'view_courses.jsp';
+            window.location.href = '${pageContext.request.contextPath}/AllSearchandPagination?type=courses';
         }
     </script>
     <script>

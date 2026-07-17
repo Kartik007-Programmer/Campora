@@ -29,34 +29,485 @@
 %>
 
 <%
-if (request.getAttribute("students") == null) {
-    try {
-        DAO studentDAO = new DAO();
-        List<Student> students = studentDAO.getAllStudents();
-        request.setAttribute("students", students);
-        request.setAttribute("studentList", students);          // for dropdown in edit form
-    } catch (SQLException e) {
-        request.setAttribute("error", "Database error: " + e.getMessage());
+    if (request.getAttribute("students") == null) {
+        try {
+            DAO studentDAO = new DAO();
+            List<Course> courses = studentDAO.getAllCourses();
+            request.setAttribute("courses", courses);
+            request.setAttribute("pendingStudents", studentDAO.getPendingStudents());
+        } catch (SQLException e) {
+            request.setAttribute("error", "Database error: " + e.getMessage());
+        }
+        request.getRequestDispatcher("/AllSearchandPagination?type=students-mg").forward(request, response);
+        return;
     }
-}
-%>
-
-<%-- Separate block for pending students --%>
-<% 
-if (request.getAttribute("pendingStudents") == null) {
-    try {
-        List<Course> courses = dao.getAllCourses();
-        request.setAttribute("courses", courses);
-        List<Student> pendingStudents = dao.getPendingStudents();
-        request.setAttribute("pendingStudents", pendingStudents);
-    } catch (SQLException e) {
-        request.setAttribute("error", "Database error: " + e.getMessage());
-    }
-}
 %>
 
 <%-- Set template variables for base.jsp --%>
 <c:set var="pageTitle" value="Manage Students - Campora Admin Panel" scope="request" />
+
+<c:set var="additionalCSS" scope="request">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@6.5.95/css/materialdesignicons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        /* Student card styles */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #121212;
+            color: #e0e0e0;
+        }
+        .wrapper {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+        .teacher-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .teacher-card {
+            flex: 1 1 calc(25% - 20px);
+            min-width: 280px;
+            background: #191c24;
+            border: 1px solid #2c2c2c;
+            border-radius: 8px;
+            padding: 16px;
+            box-sizing: border-box;
+            transition: all .3s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .teacher-card h3 {
+            color: #81d4fa;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .teacher-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 10px rgba(129, 212, 250, .3);
+            border-color: #81d4fa;
+            color: #fff;
+        }
+        .teacher-card .teacher-img {
+            position: absolute;
+            right: 15px;
+            top: 80px;
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #81d4fa;
+            transition: transform .3s;
+        }
+        .teacher-card .teacher-img:hover {
+            transform: scale(1.1);
+        }
+        .teacher-info {
+            flex-grow: 1;
+            margin-right: 90px;
+        }
+        .teacher-info p {
+            margin: 8px 0;
+            font-size: .9rem;
+            color: #b8b8b8;
+        }
+        .card-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            gap: 10px;
+        }
+        .card-buttons button {
+            flex: 1;
+            padding: 8px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: .3s;
+            border: 1px solid;
+        }
+        .btn-edit {
+            background-color: rgba(255, 193, 7, .1);
+            color: #ffc107;
+            border-color: #ffc107;
+        }
+        .btn-edit:hover {
+            background-color: #ffc107;
+            color: #121212;
+        }
+        .btn-delete {
+            background-color: rgba(244, 67, 54, .1);
+            color: #f44336;
+            border-color: #f44336;
+        }
+        .btn-delete:hover {
+            background-color: #f44336;
+            color: white;
+        }
+        .no-teachers-card {
+            background: #191c24;
+            border: 2px dashed #81d4fa;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            margin: 40px auto;
+            max-width: 400px;
+        }
+        
+        /* Search highlighting */
+        .highlight {
+            background-color: #FFEB3B;
+            color: #000;
+            padding: 0 2px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        @keyframes highlight-pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(129, 212, 250, .7);
+                border-color: #2c2c2c;
+            }
+            50% {
+                box-shadow: 0 0 0 10px rgba(129, 212, 250, 0);
+                border-color: #81d4fa;
+            }
+        }
+        
+        /* modal styles */
+        .teacher-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, .8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all .3s;
+        }
+        .teacher-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: #191c24;
+            border: 1px solid #2c2c2c;
+            border-radius: 10px;
+            width: 85%;
+            max-width: 600px;
+            max-height: 85vh;
+            padding: 25px;
+            position: relative;
+            overflow-y: auto;
+            box-shadow: 0 0 25px rgba(129, 212, 250, .2);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2c2c2c;
+            padding-bottom: 15px;
+        }
+        .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .modal-title h2 {
+            margin: 0;
+            font-size: 24px;
+            color: #81d4fa;
+        }
+        .modal-badge {
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #4caf50;
+            color: white;
+        }
+        .modal-badge-pending {
+            background: #ffc107;
+            color: #121212;
+        }
+        .modal-badge-rejected {
+            background: #f44336;
+            color: white;
+        }
+        .modal-content .close {
+            color: #81d4fa;
+            cursor: pointer;
+            font-size: 28px;
+            line-height: 1;
+        }
+        .modal-content .close:hover {
+            color: #fff;
+            transform: scale(1.1);
+        }
+        .modal-img {
+            display: block;
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 3px solid #81d4fa;
+            margin: 0 auto 20px;
+            box-shadow: 0 4px 15px rgba(129, 212, 250, .3);
+        }
+        .modal-details {
+            margin-top: 20px;
+        }
+        .modal-details p {
+            margin: 8px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #2c2c2c;
+            font-size: 15px;
+        }
+        .modal-details strong {
+            color: #81d4fa;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #2c2c2c;
+        }
+        .action-buttons {
+            display: none;
+            gap: 10px;
+        }
+        .btn-manage {
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #81d4fa;
+            color: #121212;
+            border: 1px solid #81d4fa;
+            font-weight: bold;
+        }
+        .btn-manage:hover {
+            background: #4fc3f7;
+        }
+        .btn-edit-modal {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #ffc107;
+            color: #121212;
+            border: 1px solid #ffc107;
+        }
+        .btn-edit-modal:hover {
+            background: #ffab00;
+        }
+        .btn-delete-modal {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #f44336;
+            color: white;
+            border: 1px solid #f44336;
+        }
+        .btn-delete-modal:hover {
+            background: #e53935;
+        }
+        .edit-form {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(45, 45, 45, .3);
+            border-radius: 8px;
+            border: 1px solid #2c2c2c;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #81d4fa;
+            font-weight: bold;
+        }
+        .edit-form .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #2a2a2a;
+            color: #e0e0e0;
+        }
+        .edit-form .form-control:focus {
+            outline: none;
+            border-color: #81d4fa;
+            box-shadow: 0 0 5px rgba(129, 212, 250, .3);
+        }
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #2c2c2c;
+        }
+        .btn-save {
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #4caf50;
+            color: white;
+            border: 1px solid #4caf50;
+            font-weight: bold;
+        }
+        .btn-save:hover {
+            background: #45a049;
+        }
+        .btn-cancel {
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #f44336;
+            color: white;
+            border: 1px solid #f44336;
+        }
+        .btn-cancel:hover {
+            background: #e53935;
+        }
+        
+        /* Filter styles */
+        #studentSearch,
+        #genderFilter,
+        #courseFilter {
+            box-shadow: none;
+            transition: 0.3s ease;
+            background-color: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+
+        #studentSearch:focus,
+        #courseFilter:focus,
+        #genderFilter:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #a5b4fc;
+            border-color: #81d4fa;
+        }
+
+        /* Pagination styles */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            padding: 15px 0;
+            border-top: 1px solid #2c2c2c;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 5px;
+            margin: 0;
+        }
+
+        .pagination .page-item {
+            list-style: none;
+        }
+
+        .pagination .page-link {
+            padding: 8px 14px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #191c24;
+            color: #e0e0e0;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #2c2c2c;
+            border-color: #81d4fa;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #81d4fa;
+            color: #121212;
+            border-color: #81d4fa;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            color: #b8b8b8;
+            font-size: 14px;
+        }
+
+        /* Alert styles */
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        
+        @media (max-width: 992px) {
+            .teacher-card {
+                flex: 1 1 calc(50% - 20px);
+            }
+        }
+        @media (max-width: 768px) {
+            .teacher-card {
+                flex: 1 1 100%;
+            }
+            .teacher-card .teacher-img {
+                position: static;
+                width: 100%;
+                height: 160px;
+                margin-bottom: 15px;
+            }
+            .teacher-info {
+                margin-right: 0;
+            }
+            .pagination-container {
+                flex-direction: column;
+                gap: 15px;
+                align-items: center;
+            }
+        }
+    </style>
+</c:set>
 
 <c:set var="pageContent" scope="request">
     <!-- Page Header -->
@@ -71,15 +522,6 @@ if (request.getAttribute("pendingStudents") == null) {
     </div>
 
     <!-- ALERTS -->
-    <%
-        String success = (String) request.getAttribute("success");
-        if (success != null) {
-    %>
-        <script>alert('<%= success %>');</script>
-    <%
-        }
-    %>
-    
     <c:if test="${not empty sessionScope.success}">
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             ${sessionScope.success}
@@ -100,50 +542,72 @@ if (request.getAttribute("pendingStudents") == null) {
         <c:remove var="error" scope="session"/>
     </c:if>
 
+    <c:if test="${not empty error}">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            ${error}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    </c:if>
+
     <!-- FILTERS -->
     <div class="card mb-3 border-0" style="background-color: transparent;">
         <div class="card-body py-2 px-3">
-            <div class="row align-items-end g-3">
-                <div class="col-md-3">
-                    <label class="form-label mb-1 small" for="studentSearch">Search</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Search students" id="studentSearch">
-                </div>
+            <form method="get" action="${pageContext.request.contextPath}/AllSearchandPagination" id="filterForm">
+                <input type="hidden" name="type" value="students-mg">                
+                <div class="row align-items-end g-3">
+                    <div class="col-md-3">
+                        <label class="form-label mb-1 small" for="studentSearch">Search</label>
+                        <div class="input-group">
+                            <input type="text" name="search" class="form-control form-control-sm" 
+                                   placeholder="Search students" id="studentSearch" value="${param.search}">
+                            <c:if test="${not empty param.search or not empty param.courseFilter or not empty param.genderFilter}">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                        onclick="clearAllFilters()" 
+                                        title="Clear all filters">
+                                    <i class="mdi mdi-close"></i>
+                                </button>
+                            </c:if>
+                        </div>
+                    </div>
 
-                <div class="col-md-2">
-                    <label class="form-label mb-1 small" for="courseFilter">Course</label>
-                    <select class="form-control form-control-sm" id="courseFilter">
-                        <option value="">All Courses</option>
-                        <c:forEach var="course" items="${courses}"> 
-                            <option value="${course.name}">${course.name}</option>
-                        </c:forEach>
-                    </select>
-                </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1 small" for="courseFilter">Course</label>
+                        <select name="courseFilter" class="form-control form-control-sm" id="courseFilter">
+                            <option value="">All Courses</option>
+                            <c:forEach var="course" items="${courses}"> 
+                                <option value="${course.name}" ${param.courseFilter == course.name ? 'selected' : ''}>${course.name}</option>
+                            </c:forEach>
+                        </select>
+                    </div>
 
-                <div class="col-md-2">
-                    <label class="form-label mb-1 small" for="genderFilter">Gender</label>
-                    <select class="form-control form-control-sm" id="genderFilter">
-                        <option value="">All Genders</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1 small" for="genderFilter">Gender</label>
+                        <select name="genderFilter" class="form-control form-control-sm" id="genderFilter">
+                            <option value="">All Genders</option>
+                            <option value="Male" ${param.genderFilter == 'Male' ? 'selected' : ''}>Male</option>
+                            <option value="Female" ${param.genderFilter == 'Female' ? 'selected' : ''}>Female</option>
+                        </select>
+                    </div>
 
-                <div class="col-md-2">
-                    <!-- Empty column for spacing -->
-                </div>
+                    <div class="col-md-2">
+                        <!-- Empty column for spacing -->
+                    </div>
 
-                <div class="col-md-3 d-flex justify-content-end align-items-end">
-                    <div style="width: 65%;">
-                        <label class="form-label mb-1 small text-white d-block text-center">Add</label>
-                        <a href="${pageContext.request.contextPath}/add_students.jsp">
-                            <button class="btn btn-sm d-flex align-items-center justify-content-center w-100"
-                                style="background-color: #4f46e5; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
-                                <i class="mdi mdi-plus-circle-outline me-1" style="font-size: 14px;"></i> Add Student
-                            </button>
-                        </a>
+                    <div class="col-md-3 d-flex justify-content-end align-items-end">
+                        <div style="width: 65%;">
+                            <label class="form-label mb-1 small text-white d-block text-center">Add</label>
+                            <a href="${pageContext.request.contextPath}/add_students.jsp">
+                                <button type="button" class="btn btn-sm d-flex align-items-center justify-content-center w-100"
+                                    style="background-color: #4f46e5; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
+                                    <i class="mdi mdi-plus-circle-outline me-1" style="font-size: 14px;"></i> Add Student
+                                </button>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </form>                
         </div>
     </div>
 
@@ -322,7 +786,7 @@ if (request.getAttribute("pendingStudents") == null) {
                                 </form>
                                 <form action="${pageContext.request.contextPath}/DeleteStudentServlet" method="post" style="display:inline;">
                                     <input type="hidden" name="studentId" value="${student.id}">
-                                    <button type="submit" class="btn-delete" onclick="return confirm('Are you sure?')">Delete</button>
+                                    <button type="submit" class="btn-delete" onclick="return confirm('Are you sure you want to delete this student?')">Delete</button>
                                 </form>
                             </div>
                         </div>
@@ -332,13 +796,39 @@ if (request.getAttribute("pendingStudents") == null) {
         </div>
     </div>
 
+    <!-- Pagination -->
+    <c:if test="${not empty students and totalPages > 1}">
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing ${startItem} - ${endItem} of ${totalItems} students
+            </div>
+            <nav aria-label="Student pagination">
+                <ul class="pagination">
+                    <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=students-mg&page=${currentPage - 1}${not empty param.search ? '&search='.concat(param.search) : ''}${not empty param.courseFilter ? '&courseFilter='.concat(param.courseFilter) : ''}${not empty param.genderFilter ? '&genderFilter='.concat(param.genderFilter) : ''}">Previous</a>
+                    </li>
+                    
+                    <c:forEach begin="1" end="${totalPages}" var="pageNum">
+                        <li class="page-item ${pageNum == currentPage ? 'active' : ''}">
+                            <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=students-mg&page=${pageNum}${not empty param.search ? '&search='.concat(param.search) : ''}${not empty param.courseFilter ? '&courseFilter='.concat(param.courseFilter) : ''}${not empty param.genderFilter ? '&genderFilter='.concat(param.genderFilter) : ''}">${pageNum}</a>
+                        </li>
+                    </c:forEach>
+                    
+                    <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                        <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=students-mg&page=${currentPage + 1}${not empty param.search ? '&search='.concat(param.search) : ''}${not empty param.courseFilter ? '&courseFilter='.concat(param.courseFilter) : ''}${not empty param.genderFilter ? '&genderFilter='.concat(param.genderFilter) : ''}">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </c:if>
+
     <!-- ========== STUDENT MODAL ========== -->
     <div class="teacher-modal" id="studentModal">
         <div class="modal-content">
             <div class="modal-header">
                 <div class="modal-title">
                     <h2 id="modalStudentName">Student Name</h2>
-                    <span class="modal-badge badge-active">Active</span>
+                    <span class="modal-badge" id="modalStudentStatus">Active</span>
                 </div>
                 <span class="close">&times;</span>
             </div>
@@ -349,388 +839,18 @@ if (request.getAttribute("pendingStudents") == null) {
                 <!-- Details will be populated by JavaScript -->
             </div>
 
-            <!-- The inline edit form is removed -->
-
             <div class="modal-actions">
                 <button class="btn-manage">Manage</button>
                 <div class="action-buttons" style="display:none;">
                     <button class="btn-edit-modal">Edit</button>
                     <form action="${pageContext.request.contextPath}/DeleteStudentServlet" method="post" style="display:inline;">
                         <input type="hidden" id="hiddenDeleteId" name="studentId">
-                        <button type="submit" class="btn-delete-modal" onclick="return confirm('Are you sure?')">Delete</button>
+                        <button type="submit" class="btn-delete-modal" onclick="return confirm('Are you sure you want to delete this student?')">Delete</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
-</c:set>
-
-<c:set var="additionalCSS" scope="request">
-    
-    <style>
-        /* Student card styles */
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #121212;
-            color: #e0e0e0;
-        }
-        .wrapper {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 0 15px;
-        }
-        .teacher-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .teacher-card {
-            flex: 1 1 calc(25% - 20px);
-            min-width: 280px;
-            background: #191c24;
-            border: 1px solid #2c2c2c;
-            border-radius: 8px;
-            padding: 16px;
-            box-sizing: border-box;
-            transition: all .3s;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .teacher-card h3 {
-            color: #81d4fa;
-            margin-bottom: 15px;
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-        .teacher-card:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 10px rgba(129, 212, 250, .3);
-            border-color: #81d4fa;
-            color: #fff;
-        }
-        .teacher-card .teacher-img {
-            position: absolute;
-            right: 15px;
-            top: 15px;
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 2px solid #81d4fa;
-            transition: transform .3s;
-        }
-        .teacher-card .teacher-img:hover {
-            transform: scale(1.1);
-        }
-        .teacher-info {
-            flex-grow: 1;
-            margin-right: 90px;
-        }
-        .teacher-info p {
-            margin: 8px 0;
-            font-size: .9rem;
-            color: #b8b8b8;
-        }
-        .card-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 15px;
-            gap: 10px;
-        }
-        .card-buttons button {
-            flex: 1;
-            padding: 8px;
-            font-size: 14px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: .3s;
-            border: 1px solid;
-        }
-        .btn-edit {
-            background-color: rgba(255, 193, 7, .1);
-            color: #ffc107;
-            border-color: #ffc107;
-        }
-        .btn-edit:hover {
-            background-color: #ffc107;
-            color: #121212;
-        }
-        .btn-delete {
-            background-color: rgba(244, 67, 54, .1);
-            color: #f44336;
-            border-color: #f44336;
-        }
-        .btn-delete:hover {
-            background-color: #f44336;
-            color: white;
-        }
-        .no-teachers-card {
-            background: #191c24;
-            border: 2px dashed #81d4fa;
-            border-radius: 12px;
-            padding: 60px 40px;
-            text-align: center;
-            margin: 40px auto;
-            max-width: 400px;
-        }
-        
-        /* Search highlighting */
-        .highlight {
-            background-color: #FFEB3B;
-            color: #000;
-            padding: 0 2px;
-            border-radius: 3px;
-            font-weight: bold;
-        }
-        
-        @keyframes highlight-pulse {
-            0%, 100% {
-                box-shadow: 0 0 0 0 rgba(129, 212, 250, .7);
-                border-color: #2c2c2c;
-            }
-            50% {
-                box-shadow: 0 0 0 10px rgba(129, 212, 250, 0);
-                border-color: #81d4fa;
-            }
-        }
-        /* modal styles */
-        .teacher-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, .8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all .3s;
-        }
-        .teacher-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        .modal-content {
-            background: #191c24;
-            border: 1px solid #2c2c2c;
-            border-radius: 10px;
-            width: 85%;
-            max-width: 600px;
-            max-height: 85vh;
-            padding: 25px;
-            position: relative;
-            overflow-y: auto;
-            box-shadow: 0 0 25px rgba(129, 212, 250, .2);
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #2c2c2c;
-            padding-bottom: 15px;
-        }
-        .modal-title {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .modal-title h2 {
-            margin: 0;
-            font-size: 24px;
-            color: #81d4fa;
-        }
-        .modal-badge {
-            padding: 6px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-            background: #4caf50;
-            color: white;
-        }
-        .modal-content .close {
-            color: #81d4fa;
-            cursor: pointer;
-            font-size: 28px;
-            line-height: 1;
-        }
-        .modal-content .close:hover {
-            color: #fff;
-            transform: scale(1.1);
-        }
-        .modal-img {
-            display: block;
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 3px solid #81d4fa;
-            margin: 0 auto 20px;
-            box-shadow: 0 4px 15px rgba(129, 212, 250, .3);
-        }
-        .modal-details {
-            margin-top: 20px;
-        }
-        .modal-details p {
-            margin: 8px 0;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #2c2c2c;
-            font-size: 15px;
-        }
-        .modal-details strong {
-            color: #81d4fa;
-        }
-        .modal-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid #2c2c2c;
-        }
-        .action-buttons {
-            display: none;
-            gap: 10px;
-        }
-        .btn-manage {
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            background: #81d4fa;
-            color: #121212;
-            border: 1px solid #81d4fa;
-            font-weight: bold;
-        }
-        .btn-manage:hover {
-            background: #4fc3f7;
-        }
-        .btn-edit-modal {
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            background: #ffc107;
-            color: #121212;
-            border: 1px solid #ffc107;
-        }
-        .btn-edit-modal:hover {
-            background: #ffab00;
-        }
-        .btn-delete-modal {
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            background: #f44336;
-            color: white;
-            border: 1px solid #f44336;
-        }
-        .btn-delete-modal:hover {
-            background: #e53935;
-        }
-        .edit-form {
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(45, 45, 45, .3);
-            border-radius: 8px;
-            border: 1px solid #2c2c2c;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #81d4fa;
-            font-weight: bold;
-        }
-        .edit-form .form-control {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #444;
-            border-radius: 4px;
-            background: #2a2a2a;
-            color: #e0e0e0;
-        }
-        .edit-form .form-control:focus {
-            outline: none;
-            border-color: #81d4fa;
-            box-shadow: 0 0 5px rgba(129, 212, 250, .3);
-        }
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #2c2c2c;
-        }
-        .btn-save {
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            background: #4caf50;
-            color: white;
-            border: 1px solid #4caf50;
-            font-weight: bold;
-        }
-        .btn-save:hover {
-            background: #45a049;
-        }
-        .btn-cancel {
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            background: #f44336;
-            color: white;
-            border: 1px solid #f44336;
-        }
-        .btn-cancel:hover {
-            background: #e53935;
-        }
-        
-                /* Filter styles */
-        #studentSearch,
-        #genderFilter,
-        #courseFilter {
-            box-shadow: none;
-            transition: 0.3s ease;
-            background-color: #2a2a2a;
-            color: #e0e0e0;
-            border: 1px solid #444;
-        }
-
-        #studentSearch:focus,
-        #courseFilter:focus,
-        #genderFilter:focus{
-            outline: none;
-            box-shadow: 0 0 0 2px #a5b4fc;
-            border-color: #81d4fa;
-        }
-        
-        @media (max-width: 992px) {
-            .teacher-card {
-                flex: 1 1 calc(50% - 20px);
-            }
-        }
-        @media (max-width: 768px) {
-            .teacher-card {
-                flex: 1 1 100%;
-            }
-        }
-    </style>
 </c:set>
 
 <c:set var="additionalScripts" scope="request">
@@ -739,47 +859,12 @@ if (request.getAttribute("pendingStudents") == null) {
             // DOM Elements
             const students = document.querySelectorAll('.teacher-card');
             const studentSearch = document.getElementById('studentSearch');
-            const globalSearch = document.querySelector('#globalSearch');
             const courseFilter = document.getElementById('courseFilter');
             const genderFilter = document.getElementById('genderFilter');
-            const pageFilter = document.getElementById('pageFilter');
             const modal = document.getElementById('studentModal');
             const studentDetailsContainer = document.getElementById('studentDetails');
 
-            /* SEARCH & FILTER FUNCTIONALITY */
-            function performSearch() {
-                const term = (studentSearch.value || globalSearch?.value || '').toLowerCase();
-                const course = courseFilter.value;
-                const gender = genderFilter.value;
-                const perPage = pageFilter?.value || 'all';
-                let visibleCount = 0;
-                const maxVisible = perPage === 'all' ? Infinity : parseInt(perPage);
-
-                students.forEach(card => {
-                    const name = card.getAttribute('data-name');
-                    const crs = card.getAttribute('data-course');
-                    const gen = card.getAttribute('data-gender');
-                    const email = card.getAttribute('data-email');
-
-                    const matchesSearch = !term || name.includes(term) || email.includes(term);
-                    const matchesCourse = !course || crs === course;
-                    const matchesGender = !gender || gen === gender;
-                    const shouldShow = matchesSearch && matchesCourse && matchesGender && visibleCount < maxVisible;
-
-                    card.style.display = shouldShow ? 'flex' : 'none';
-                    
-                    // Apply or remove highlights
-                    if (shouldShow && term) {
-                        highlightSearchTerm(card, term);
-                    } else {
-                        removeHighlights(card);
-                    }
-                    
-                    if (shouldShow) visibleCount++;
-                });
-            }
-
-            // Highlight functionality
+            // ===== SEARCH HIGHLIGHT FUNCTIONS =====
             function escapeHtml(str) {
                 return String(str)
                     .replace(/&/g, '&amp;')
@@ -828,19 +913,131 @@ if (request.getAttribute("pendingStudents") == null) {
                 });
             }
 
-            // Event listeners for search/filter
-            if (studentSearch) studentSearch.addEventListener('input', performSearch);
-            if (globalSearch) globalSearch.addEventListener('input', performSearch);
-            if (courseFilter) courseFilter.addEventListener('change', performSearch);
-            if (genderFilter) genderFilter.addEventListener('change', performSearch);
-            if (pageFilter) pageFilter.addEventListener('change', performSearch);
+            function applySearchHighlights(searchTerm) {
+                const studentCards = document.querySelectorAll('.teacher-card');
+                
+                studentCards.forEach(card => {
+                    removeHighlights(card);
+                });
+                
+                if (!searchTerm || searchTerm.trim() === '') return;
+                
+                const term = searchTerm.trim().toLowerCase();
+                
+                studentCards.forEach(card => {
+                    const targets = card.querySelectorAll('.highlight-target');
+                    let hasMatch = false;
+                    
+                    targets.forEach(target => {
+                        const text = target.textContent || '';
+                        if (text.toLowerCase().includes(term)) {
+                            hasMatch = true;
+                        }
+                    });
+                    
+                    if (hasMatch) {
+                        highlightSearchTerm(card, term);
+                    }
+                });
+            }
+
+            // ===== SEARCH AND FILTER FUNCTIONS =====
+            let searchTimer = null;
+            let isSubmitting = false;
+
+            function performSearchAndFilter() {
+                if (isSubmitting) return;
+                isSubmitting = true;
+                
+                const url = new URL(window.location.href);
+                url.searchParams.delete('page');
+                
+                const searchVal = studentSearch.value.trim();
+                const courseVal = courseFilter.value;
+                const genderVal = genderFilter.value;
+                
+                if (searchVal) {
+                    url.searchParams.set('search', searchVal);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                
+                if (courseVal) {
+                    url.searchParams.set('courseFilter', courseVal);
+                } else {
+                    url.searchParams.delete('courseFilter');
+                }
+                
+                if (genderVal) {
+                    url.searchParams.set('genderFilter', genderVal);
+                } else {
+                    url.searchParams.delete('genderFilter');
+                }
+                
+                url.searchParams.set('type', 'students-mg');
+                
+                window.location.href = url.toString();
+            }
+
+            // ===== EVENT LISTENERS =====
+            // Search input - live highlighting + debounced search
+            studentSearch.addEventListener('input', function() {
+                const searchTerm = this.value.trim();
+                
+                applySearchHighlights(searchTerm);
+                
+                if (searchTimer) {
+                    clearTimeout(searchTimer);
+                }
+                
+                if (searchTerm === '') {
+                    searchTimer = setTimeout(function() {
+                        performSearchAndFilter();
+                    }, 300);
+                    return;
+                }
+                
+                if (searchTerm.length >= 2) {
+                    searchTimer = setTimeout(function() {
+                        performSearchAndFilter();
+                    }, 500);
+                }
+            });
+
+            studentSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchTimer) {
+                        clearTimeout(searchTimer);
+                    }
+                    performSearchAndFilter();
+                }
+            });
+
+            courseFilter.addEventListener('change', function() {
+                performSearchAndFilter();
+            });
+
+            genderFilter.addEventListener('change', function() {
+                performSearchAndFilter();
+            });
 
             /* MODAL FUNCTIONALITY */
             function openModal(card) {
-                // Get basic info from the card
                 const id = card.dataset.id;
                 const name = card.querySelector('.teacher-name').textContent;
                 const imgSrc = card.querySelector('.teacher-img').src;
+                const status = card.dataset.status || 'active';
+                
+                // Set status badge
+                const statusBadge = document.getElementById('modalStudentStatus');
+                statusBadge.textContent = status.toUpperCase();
+                statusBadge.className = 'modal-badge';
+                if (status.toLowerCase() === 'pending') {
+                    statusBadge.classList.add('modal-badge-pending');
+                } else if (status.toLowerCase() === 'rejected') {
+                    statusBadge.classList.add('modal-badge-rejected');
+                }
                 
                 // Get detailed info from the paragraphs inside the card
                 const infoParagraphs = card.querySelectorAll('.teacher-info p');
@@ -851,17 +1048,16 @@ if (request.getAttribute("pendingStudents") == null) {
                     detailsHtml += `<p>${p.innerHTML}</p>`;
                 });
           
-                detailsHtml += `<p><strong>Qualification:</strong> ${card.getAttribute('data-qualification')}</p>`;
-                detailsHtml += `<p><strong>Status:</strong> ${card.getAttribute('data-status')}</p>`;
-                detailsHtml += `<p><strong>Address Line 1:</strong> ${card.getAttribute('data-addressLine1')}</p>`;
-                detailsHtml += `<p><strong>Address Line 2:</strong> ${card.getAttribute('data-addressLine2')}</p>`;
-                detailsHtml += `<p><strong>Landmark:</strong> ${card.getAttribute('data-landmark')}</p>`;
-                detailsHtml += `<p><strong>Pincode:</strong> ${card.getAttribute('data-pincode')}</p>`;
-                detailsHtml += `<p><strong>State:</strong> ${card.getAttribute('data-state')}</p>`;
-                detailsHtml += `<p><strong>City:</strong> ${card.getAttribute('data-city')}</p>`;
-                detailsHtml += `<p><strong>Registration Date:</strong> ${card.getAttribute('data-registrationDate')}</p>`;
+                detailsHtml += `<p><strong>Qualification:</strong> ${card.getAttribute('data-qualification') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>Status:</strong> ${card.getAttribute('data-status') || 'Active'}</p>`;
+                detailsHtml += `<p><strong>Address Line 1:</strong> ${card.getAttribute('data-addressLine1') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>Address Line 2:</strong> ${card.getAttribute('data-addressLine2') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>Landmark:</strong> ${card.getAttribute('data-landmark') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>Pincode:</strong> ${card.getAttribute('data-pincode') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>State:</strong> ${card.getAttribute('data-state') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>City:</strong> ${card.getAttribute('data-city') || 'N/A'}</p>`;
+                detailsHtml += `<p><strong>Registration Date:</strong> ${card.getAttribute('data-registrationDate') || 'N/A'}</p>`;
                     
-          
                 // Populate the modal elements
                 document.getElementById('modalStudentName').textContent = name;
                 document.getElementById('modalStudentImg').src = imgSrc;
@@ -890,9 +1086,14 @@ if (request.getAttribute("pendingStudents") == null) {
                 actionButtons.style.display = actionButtons.style.display === 'none' ? 'flex' : 'none';
             });
 
-            // Edit button in modal (now directs user to the card button)
+            // Edit button in modal
             document.querySelector('.btn-edit-modal').addEventListener('click', () => {
-                alert("Please use the 'Edit' button on the main student card to modify details.");
+                const studentId = document.getElementById('hiddenDeleteId').value;
+                if (studentId) {
+                    window.location.href = '${pageContext.request.contextPath}/edit-student?id=' + studentId;
+                } else {
+                    alert("Please use the 'Edit' button on the main student card to modify details.");
+                }
                 closeModal();
             });
 
@@ -907,6 +1108,20 @@ if (request.getAttribute("pendingStudents") == null) {
                 });
             });
             
+            // Edit buttons on cards - open modal with edit mode
+            document.querySelectorAll('.btn-edit').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const card = this.closest('.teacher-card');
+                    openModal(card);
+                    
+                    setTimeout(() => {
+                        document.querySelector('.btn-manage').click();
+                        document.querySelector('.btn-edit-modal').click();
+                    }, 100);
+                });
+            });
+            
             /* PENDING STUDENTS TABLE FUNCTIONALITY */
             const editModeBtn = document.getElementById('editModeBtn');
             const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
@@ -917,7 +1132,6 @@ if (request.getAttribute("pendingStudents") == null) {
                 editModeBtn.addEventListener('click', function() {
                     const isEditMode = !this.classList.contains('active');
                     
-                    // Toggle edit mode
                     if (isEditMode) {
                         this.classList.add('active');
                         this.innerHTML = '<i class="mdi mdi-check"></i> Done';
@@ -955,7 +1169,6 @@ if (request.getAttribute("pendingStudents") == null) {
                     }
                     
                     if (confirm(`Are you sure you want to delete ${selectedIds.length} selected student(s)?`)) {
-                        // Submit deletion request
                         const form = document.createElement('form');
                         form.method = 'POST';
                         form.action = '${pageContext.request.contextPath}/DeleteStudentServlet';
@@ -974,16 +1187,37 @@ if (request.getAttribute("pendingStudents") == null) {
                 });
             }
             
-            /* INITIAL SEARCH/FILTER */
-            performSearch(); // Apply filters on initial load
+            // Handle URL parameters for search
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchQuery = urlParams.get('search');
+            if (searchQuery) {
+                studentSearch.value = searchQuery;
+                setTimeout(function() {
+                    applySearchHighlights(searchQuery);
+                }, 200);
+            }
+
+            // Check for student ID to highlight from URL
+            const highlightId = urlParams.get('highlightId');
+            if (highlightId) {
+                const studentCard = document.querySelector(`.teacher-card[data-id="${highlightId}"]`);
+                if (studentCard) {
+                    studentCard.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    studentCard.style.animation = 'highlight-pulse 2s ease-in-out';
+                }
+            }
         });
+
+        function clearAllFilters() {
+            window.location.href = '${pageContext.request.contextPath}/AllSearchandPagination?type=students-mg';
+        }
     </script> 
     <script>
         window.onload = function() {
             const navEntries = performance.getEntriesByType("navigation");
             if (navEntries.length > 0 && navEntries[0].type === "reload") {
                 const isLoggedIn = <%= isUserLoggedIn %>;
-                if (isLoggedIn) {
+                if (!isLoggedIn) {
                     window.location.replace("LoginForm.jsp");
                 }
             }

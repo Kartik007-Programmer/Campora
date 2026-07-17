@@ -27,13 +27,12 @@
         try {
             DAO courseDAO = new DAO();
             List<Course> courses = courseDAO.getAllCourses();
-            List<String> ccategories = courseDAO.getAllCategoriesOfCourses(true);
-            request.setAttribute("ccategories", ccategories);
-            request.setAttribute("courses", courses);
             request.setAttribute("courseList", courses); // For dropdown in edit form
         } catch (SQLException e) {
             request.setAttribute("error", "Database error: " + e.getMessage());
         }
+        request.getRequestDispatcher("/AllSearchandPagination?type=courses-mg").forward(request, response);
+        return;
     }
 %>
 
@@ -571,32 +570,45 @@
     </c:if>
 
     <!-- Filters Card Section -->
-    <div class="card mb-3 border-0" style="background-color: transparent;">
-        <div class="card-body py-2 px-3">
+<!-- Filters Card Section -->
+<div class="card mb-3 border-0" style="background-color: transparent;">
+    <div class="card-body py-2 px-3">
+        <form method="get" action="${pageContext.request.contextPath}/AllSearchandPagination" id="filterForm">
+            <input type="hidden" name="type" value="courses-mg">                
             <div class="row align-items-end g-3">
                 <div class="col-md-3">
                     <label class="form-label mb-1 small" for="courseSearch">Search</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Search courses" id="courseSearch">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control form-control-sm" 
+                               placeholder="Search courses" id="courseSearch" value="${param.search}">
+                        <c:if test="${not empty param.search or not empty param.categoryFilter or not empty param.ratingFilter or not empty param.durationFilter}">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                    onclick="clearAllFilters()" 
+                                    title="Clear all filters">
+                                <i class="mdi mdi-close"></i>
+                            </button>
+                        </c:if>
+                    </div>
                 </div>
 
                 <div class="col-md-2">
                     <label class="form-label mb-1 small" for="categoryFilter">Category</label>
-                    <select class="form-control form-control-sm" id="categoryFilter">
+                    <select name="categoryFilter" class="form-control form-control-sm" id="categoryFilter">
                         <option value="">All Categories</option>
                         <c:forEach var="ccategories" items="${ccategories}">
-                        <option value="${ccategories}">${ccategories}</option>
+                            <option value="${ccategories}" ${param.categoryFilter == ccategories ? 'selected' : ''}>${ccategories}</option>
                         </c:forEach>
                     </select>
                 </div>
 
                 <div class="col-md-2">
                     <label class="form-label mb-1 small" for="durationFilter">Duration</label>
-                    <select class="form-control form-control-sm" id="durationFilter">
+                    <select name="durationFilter" class="form-control form-control-sm" id="durationFilter">
                         <option value="">All Durations</option>
-                        <option value="1-3">1-3 Months</option>
-                        <option value="4-6">4-6 Months</option>
-                        <option value="7-12">7-12 Months</option>
-                        <option value="12+">12+ Months</option>
+                        <option value="1-3" ${param.durationFilter == '1-3' ? 'selected' : ''}>1-3 Months</option>
+                        <option value="4-6" ${param.durationFilter == '4-6' ? 'selected' : ''}>4-6 Months</option>
+                        <option value="7-12" ${param.durationFilter == '7-12' ? 'selected' : ''}>7-12 Months</option>
+                        <option value="12+" ${param.durationFilter == '12+' ? 'selected' : ''}>12+ Months</option>
                     </select>
                 </div>
 
@@ -606,7 +618,7 @@
                     <div style="width: 65%;">
                         <label class="form-label mb-1 small text-white d-block text-center">Add</label>
                         <a href="${pageContext.request.contextPath}/add_courses.jsp">
-                            <button class="btn btn-sm d-flex align-items-center justify-content-center w-100"
+                            <button type="button" class="btn btn-sm d-flex align-items-center justify-content-center w-100"
                                 style="background-color: #4f46e5; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
                                 <i class="mdi mdi-plus-circle-outline me-1" style="font-size: 14px;"></i> Add Course
                             </button>
@@ -614,8 +626,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </form>                
     </div>
+</div>
 
     <!-- Course Cards Container -->
     <div class="wrapper">
@@ -792,61 +805,7 @@
             const courseDetails = document.getElementById('courseDetails');
             const courseEditForm = document.getElementById('courseEditForm');
 
-            // Initialize search and filters
-            performSearch();
-
-            // Search functionality
-            function performSearch() {
-                const searchTerm = (courseSearch.value || (globalSearch ? globalSearch.value : '')).toLowerCase().trim();
-                const selectedCategory = categoryFilter.value;
-                const selectedDuration = durationFilter.value;
-
-                courses.forEach(course => {
-                    const courseName = (course.getAttribute('data-name') || '').toLowerCase();
-                    const courseCategory = (course.getAttribute('data-category') || '').toLowerCase();
-                    const courseDescription = (course.getAttribute('data-description') || '').toLowerCase();
-                    const courseDuration = parseInt(course.getAttribute('data-duration'));
-                    
-                    const matchesSearch = !searchTerm || 
-                        courseName.includes(searchTerm) || 
-                        courseDescription.includes(searchTerm);
-
-                    const matchesCategory = !selectedCategory || courseCategory === selectedCategory.toLowerCase();
-
-                    let matchesDuration = true;
-                    if (selectedDuration) {
-                        switch (selectedDuration) {
-                            case '1-3':
-                                matchesDuration = courseDuration >= 1 && courseDuration <= 3;
-                                break;
-                            case '4-6':
-                                matchesDuration = courseDuration >= 4 && courseDuration <= 6;
-                                break;
-                            case '7-12':
-                                matchesDuration = courseDuration >= 7 && courseDuration <= 12;
-                                break;
-                            case '12+':
-                                matchesDuration = courseDuration > 12;
-                                break;
-                        }
-                    }
-
-                    const shouldShow = matchesSearch && matchesCategory && matchesDuration;
-                    
-                    if (shouldShow) {
-                        course.style.display = 'flex';
-                        
-                        if (searchTerm) {
-                            highlightSearchTerm(course, searchTerm);
-                        } else {
-                            removeHighlights(course);
-                        }
-                    } else {
-                        course.style.display = 'none';
-                    }
-                });
-            }
-
+            // ===== SEARCH HIGHLIGHT FUNCTIONS =====
             function escapeHtml(str) {
                 return String(str)
                     .replace(/&/g, '&amp;')
@@ -860,6 +819,7 @@
                 if (!term) return;
                 const search = term.trim().toLowerCase();
                 if (!search) return;
+                
                 const targets = card.querySelectorAll('.highlight-target');
                 targets.forEach(target => {
                     if (!target.dataset.originalHtml) {
@@ -895,13 +855,127 @@
                 });
             }
 
-            // Event listeners for search and filters
-            courseSearch.addEventListener('input', performSearch);
-            if (globalSearch) globalSearch.addEventListener('input', performSearch);
-            categoryFilter.addEventListener('change', performSearch);
-            durationFilter.addEventListener('change', performSearch);
+            function applySearchHighlights(searchTerm) {
+                const courseCards = document.querySelectorAll('.course-card');
+                
+                // Remove all existing highlights first
+                courseCards.forEach(card => {
+                    removeHighlights(card);
+                });
+                
+                if (!searchTerm || searchTerm.trim() === '') return;
+                
+                const term = searchTerm.trim().toLowerCase();
+                
+                courseCards.forEach(card => {
+                    const targets = card.querySelectorAll('.highlight-target');
+                    let hasMatch = false;
+                    
+                    targets.forEach(target => {
+                        const text = target.textContent || '';
+                        if (text.toLowerCase().includes(term)) {
+                            hasMatch = true;
+                        }
+                    });
+                    
+                    if (hasMatch) {
+                        highlightSearchTerm(card, term);
+                    }
+                });
+            }
 
-            // Course modal functionality
+            // ===== SEARCH AND FILTER FUNCTIONS =====
+            let searchTimer = null;
+            let isSubmitting = false;
+
+            function performSearchAndFilter() {
+                if (isSubmitting) return;
+                isSubmitting = true;
+                
+                const url = new URL(window.location.href);
+                url.searchParams.delete('page');
+                
+                // Get current form values
+                const searchVal = courseSearch.value.trim();
+                const categoryVal = categoryFilter.value;
+                const durationVal = durationFilter.value;
+                
+                // Set parameters
+                if (searchVal) {
+                    url.searchParams.set('search', searchVal);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                
+                if (categoryVal) {
+                    url.searchParams.set('categoryFilter', categoryVal);
+                } else {
+                    url.searchParams.delete('categoryFilter');
+                }
+                
+                if (durationVal) {
+                    url.searchParams.set('durationFilter', durationVal);
+                } else {
+                    url.searchParams.delete('durationFilter');
+                }
+                
+                // Preserve type
+                url.searchParams.set('type', 'courses-mg');
+                
+                window.location.href = url.toString();
+            }
+
+            // ===== EVENT LISTENERS =====
+            // Search input - live highlighting + debounced search
+            courseSearch.addEventListener('input', function() {
+                const searchTerm = this.value.trim();
+                
+                // Apply highlights immediately while typing
+                applySearchHighlights(searchTerm);
+                
+                // Clear previous timer
+                if (searchTimer) {
+                    clearTimeout(searchTimer);
+                }
+                
+                // If search is empty, submit immediately to show all results
+                if (searchTerm === '') {
+                    searchTimer = setTimeout(function() {
+                        performSearchAndFilter();
+                    }, 300);
+                    return;
+                }
+                
+                // Only submit after 500ms of no typing, and only if at least 2 characters
+                if (searchTerm.length >= 2) {
+                    searchTimer = setTimeout(function() {
+                        performSearchAndFilter();
+                    }, 500);
+                }
+            });
+
+            // Search - Enter key submits immediately
+            courseSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchTimer) {
+                        clearTimeout(searchTimer);
+                    }
+                    performSearchAndFilter();
+                }
+            });
+
+            // Category filter - submit on change
+            categoryFilter.addEventListener('change', function() {
+                performSearchAndFilter();
+            });
+
+            // Duration filter - submit on change
+            durationFilter.addEventListener('change', function() {
+                performSearchAndFilter();
+            });
+
+            // ===== MODAL FUNCTIONALITY =====
             courses.forEach(course => {
                 course.addEventListener('click', function(e) {
                     if (e.target.classList.contains('btn-edit') || e.target.classList.contains('btn-delete')) {
@@ -1098,12 +1172,19 @@
             });
 
             // Handle URL parameters for search
-            const searchQuery = urlParams.get('searchQuery');
+            const searchQuery = urlParams.get('search');
             if (searchQuery) {
                 courseSearch.value = searchQuery;
-                performSearch();
+                // Apply highlights after page load
+                setTimeout(function() {
+                    applySearchHighlights(searchQuery);
+                }, 200);
             }
         });
+        
+        function clearAllFilters() {
+            window.location.href = '${pageContext.request.contextPath}/AllSearchandPagination?type=courses-mg';
+        }
     </script>
     <script>
         window.onload = function() {

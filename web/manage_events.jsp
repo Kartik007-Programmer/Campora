@@ -5,6 +5,8 @@
 <%@ page import="mypackage.*" %>
 <%@ page import="mypackage.DAO" %>
 <%@ page import="java.sql.SQLException" %>
+<%@ page import="java.util.Date" %>
+<%@ page import="java.text.SimpleDateFormat" %>
 
 <%
     response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -23,19 +25,18 @@
 %>
 
 <%
-
-    
     if (request.getAttribute("events") == null) {
         try {
             DAO eventDAO = new DAO();
             List<Event> events = eventDAO.getAllEvents();
             List<String> category = eventDAO.getAllCategoriesOfEvents(true);
             request.setAttribute("category", category);
-            request.setAttribute("events", events);
-            request.setAttribute("eventList", events); // For dropdown in edit form
+            request.setAttribute("eventList", events);
         } catch (SQLException e) {
             request.setAttribute("error", "Database error: " + e.getMessage());
         }
+        request.getRequestDispatcher("/AllSearchandPagination?type=events-mg").forward(request, response);
+        return;
     }
 %>
 
@@ -99,9 +100,9 @@
         .event-card .event-img {
             position: absolute;
             right: 15px;
-            top: 15px;
-            width: 80px;
-            height: 80px;
+            top: 80px;
+            width: 120px;
+            height: 120px;
             object-fit: cover;
             border-radius: 8px;
             border: 2px solid #81d4fa;
@@ -129,6 +130,24 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .event-status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-upcoming {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .status-past {
+            background-color: #f44336;
+            color: white;
         }
 
         .card-buttons {
@@ -269,6 +288,11 @@
             font-size: 12px;
             font-weight: bold;
             background-color: #4caf50;
+            color: white;
+        }
+
+        .modal-badge-past {
+            background-color: #f44336;
             color: white;
         }
         
@@ -454,7 +478,7 @@
         /* Filter styles */
         #eventSearch,
         #categoryFilter,
-        #priceFilter,
+        #statusFilter,
         #pageFilter {
             box-shadow: none;
             transition: 0.3s ease;
@@ -465,7 +489,7 @@
 
         #eventSearch:focus,
         #categoryFilter:focus,
-        #priceFilter:focus,
+        #statusFilter:focus,
         #pageFilter:focus {
             outline: none;
             box-shadow: 0 0 0 2px #a5b4fc;
@@ -490,6 +514,57 @@
             background-color: #f8d7da;
             border-color: #f5c6cb;
             color: #721c24;
+        }
+
+        /* Pagination styles */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            padding: 15px 0;
+            border-top: 1px solid #2c2c2c;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 5px;
+            margin: 0;
+        }
+
+        .pagination .page-item {
+            list-style: none;
+        }
+
+        .pagination .page-link {
+            padding: 8px 14px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #191c24;
+            color: #e0e0e0;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #2c2c2c;
+            border-color: #81d4fa;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #81d4fa;
+            color: #121212;
+            border-color: #81d4fa;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            color: #b8b8b8;
+            font-size: 14px;
         }
 
         /* Responsive design */
@@ -526,6 +601,12 @@
                 height: 160px;
                 margin-bottom: 15px;
             }
+
+            .pagination-container {
+                flex-direction: column;
+                gap: 15px;
+                align-items: center;
+            }
         }
     </style>
 </c:set>
@@ -536,7 +617,7 @@
         <h3 class="page-title mb-0">Manage Events</h3>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="${pageContext.request.contextPath}/WEB-INF/views/Admin_penal.jsp">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="${pageContext.request.contextPath}/Admin_penal.jsp">Dashboard</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Manage Events</li>
             </ol>
         </nav>
@@ -575,49 +656,58 @@
     <!-- Filters Card Section -->
     <div class="card mb-3 border-0" style="background-color: transparent;">
         <div class="card-body py-2 px-3">
-            <div class="row align-items-end g-3">
-                <div class="col-md-3">
-                    <label class="form-label mb-1 small" for="eventSearch">Search</label>
-                    <input type="text" class="form-control form-control-sm" placeholder="Search events" id="eventSearch">
-                </div>
+            <form method="get" action="${pageContext.request.contextPath}/AllSearchandPagination" id="filterForm">
+                <input type="hidden" name="type" value="events-mg">                
+                <div class="row align-items-end g-3">
+                    <div class="col-md-3">
+                        <label class="form-label mb-1 small" for="eventSearch">Search</label>
+                        <div class="input-group">
+                            <input type="text" name="search" class="form-control form-control-sm" 
+                                   placeholder="Search events" id="eventSearch" value="${param.search}">
+                            <c:if test="${not empty param.search or not empty param.categoryFilter or not empty param.statusFilter}">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                        onclick="clearAllFilters()" 
+                                        title="Clear all filters">
+                                    <i class="mdi mdi-close"></i>
+                                </button>
+                            </c:if>
+                        </div>
+                    </div>
 
-                <div class="col-md-2">
-                    <label class="form-label mb-1 small" for="categoryFilter">Category</label>
-                    <select class="form-control form-control-sm" id="categoryFilter">
-                        <option value="">All Categories</option>
-                        <c:forEach var="ccategories" items="${category}">
-                        <option value="${ccategories}">${ccategories}</option>
-                        </c:forEach>
-                    </select>
-                </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1 small" for="categoryFilter">Category</label>
+                        <select name="categoryFilter" class="form-control form-control-sm" id="categoryFilter">
+                            <option value="">All Categories</option>
+                            <c:forEach var="ccategories" items="${category}">
+                                <option value="${ccategories}" ${param.categoryFilter == ccategories ? 'selected' : ''}>${ccategories}</option>
+                            </c:forEach>
+                        </select>
+                    </div>
 
-                <div class="col-md-2">
-                    <label class="form-label mb-1 small" for="priceFilter">Price Range</label>
-                    <select class="form-control form-control-sm" id="priceFilter">
-                        <option value="">All Prices</option>
-                        <option value="free">Free</option>
-                        <option value="1-50">$1-$50</option>
-                        <option value="51-100">$51-$100</option>
-                        <option value="101+">$101+</option>
-                    </select>
-                </div>
+                    <div class="col-md-2">
+                        <label class="form-label mb-1 small" for="statusFilter">Status</label>
+                        <select name="statusFilter" class="form-control form-control-sm" id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="Upcoming" ${param.statusFilter == 'Upcoming' ? 'selected' : ''}>Upcoming</option>
+                            <option value="Past" ${param.statusFilter == 'Past' ? 'selected' : ''}>Past</option>
+                        </select>
+                    </div>
 
-                <div class="col-md-2">
+                    <div class="col-md-2"></div>
 
-                </div>
-
-                <div class="col-md-3 d-flex justify-content-end align-items-end">
-                    <div style="width: 65%;">
-                        <label class="form-label mb-1 small text-white d-block text-center">Add</label>
-                        <a href="${pageContext.request.contextPath}/add_events.jsp">
-                            <button class="btn btn-sm d-flex align-items-center justify-content-center w-100"
-                                style="background-color: #4f46e5; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
-                                <i class="mdi mdi-plus-circle-outline me-1" style="font-size: 14px;"></i> Add Event
-                            </button>
-                        </a>
+                    <div class="col-md-3 d-flex justify-content-end align-items-end">
+                        <div style="width: 65%;">
+                            <label class="form-label mb-1 small text-white d-block text-center">Add</label>
+                            <a href="${pageContext.request.contextPath}/add_events.jsp">
+                                <button type="button" class="btn btn-sm d-flex align-items-center justify-content-center w-100"
+                                    style="background-color: #4f46e5; color: white; height: 32px; font-size: 13px; padding: 0 12px;">
+                                    <i class="mdi mdi-plus-circle-outline me-1" style="font-size: 14px;"></i> Add Event
+                                </button>
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </form>                
         </div>
     </div>
 
@@ -639,12 +729,13 @@
                 </c:when>
                 <c:otherwise>
                     <c:forEach var="event" items="${events}">
+                        <c:set var="isUpcoming" value="${event.date.time >= today.time}" />
                         <div class="event-card" 
                              data-id="${event.id}" 
                              data-title="${fn:toLowerCase(event.title)}"
                              data-category="${event.category}"
-                             data-price="${event.price}"
                              data-description="${fn:toLowerCase(event.description)}"
+                             data-status="${isUpcoming ? 'Upcoming' : 'Past'}"
                              <c:if test="${param.highlightId eq event.id}">style="animation: highlight-pulse 2s ease-in-out;"</c:if>>
                             
                             <!-- Event Image -->
@@ -662,15 +753,19 @@
                                 <p><strong>Category:</strong> <span class="highlight-target">${event.category}</span></p>
                                 <p><strong>Date:</strong> ${event.date}</p>
                                 <p><strong>Price:</strong> $${event.price}</p>
+                                <p><strong>Status:</strong> 
+                                    <span class="event-status-badge ${isUpcoming ? 'status-upcoming' : 'status-past'}">
+                                        ${isUpcoming ? 'Upcoming' : 'Past'}
+                                    </span>
+                                </p>
                                 <p><strong>Description:</strong> <span class="highlight-target event-description">${event.description}</span></p>
                             </div>
                             
                             <div class="card-buttons">
                                 <button class="btn-edit" data-event-id="${event.id}">Edit</button>
-                               
                                 <form action="${pageContext.request.contextPath}/DeleteEventServlet" method="post" style="display:inline;">
                                     <input type="hidden" name="eventId" value="${event.id}">
-                                    <button type="submit" class="btn-delete" data-event-id="${event.id}" onclick="return confirm('Are you sure?')">Delete</button>
+                                    <button type="submit" class="btn-delete" data-event-id="${event.id}" onclick="return confirm('Are you sure you want to delete this event?')">Delete</button>
                                 </form>
                             </div>
                         </div>
@@ -680,13 +775,39 @@
         </div>
     </div>
 
+    <!-- Pagination -->
+    <c:if test="${not empty events and totalPages > 1}">
+        <div class="pagination-container">
+            <div class="pagination-info">
+                Showing ${startItem} - ${endItem} of ${totalItems} events
+            </div>
+            <nav aria-label="Event pagination">
+                <ul class="pagination">
+                    <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=events-mg&page=${currentPage - 1}${not empty param.search ? '&search='.concat(param.search) : ''}${not empty param.categoryFilter ? '&categoryFilter='.concat(param.categoryFilter) : ''}${not empty param.statusFilter ? '&statusFilter='.concat(param.statusFilter) : ''}">Previous</a>
+                    </li>
+                    
+                    <c:forEach begin="1" end="${totalPages}" var="pageNum">
+                        <li class="page-item ${pageNum == currentPage ? 'active' : ''}">
+                            <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=events-mg&page=${pageNum}${not empty param.search ? '&search='.concat(param.search) : ''}${not empty param.categoryFilter ? '&categoryFilter='.concat(param.categoryFilter) : ''}${not empty param.statusFilter ? '&statusFilter='.concat(param.statusFilter) : ''}">${pageNum}</a>
+                        </li>
+                    </c:forEach>
+                    
+                    <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                        <a class="page-link" href="${pageContext.request.contextPath}/AllSearchandPagination?type=events-mg&page=${currentPage + 1}${not empty param.search ? '&search='.concat(param.search) : ''}${not empty param.categoryFilter ? '&categoryFilter='.concat(param.categoryFilter) : ''}${not empty param.statusFilter ? '&statusFilter='.concat(param.statusFilter) : ''}">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </c:if>
+
     <!-- Event Details Modal -->
     <div class="event-modal" id="eventModal">
         <div class="modal-content">
             <div class="modal-header">
                 <div class="modal-title">
                     <h2 id="modalEventTitle">Event Title</h2>
-                    <span class="modal-badge badge-active" id="modalEventStatus">Active</span>
+                    <span class="modal-badge" id="modalEventStatus">Active</span>
                 </div>
                 <span class="close">&times;</span>
             </div>
@@ -731,11 +852,9 @@
                         <label for="editEventCategory">Category:</label>
                         <select id="editEventCategory" name="category" class="form-control" required>
                             <option value="">-- Select Category --</option>
-                            <option value="Educational">Educational</option>
-                            <option value="Social">Social</option>
-                            <option value="Workshop">Workshop</option>
-                            <option value="Sports">Sports</option>
-                            <option value="Tech">Tech</option>
+                            <c:forEach var="ccategories" items="${category}">
+                                <option value="${ccategories}">${ccategories}</option>
+                            </c:forEach>
                         </select>
                     </div>
 
@@ -750,9 +869,9 @@
                 <button class="btn-manage">Manage</button>
                 <div class="action-buttons" style="display: none;">
                     <button class="btn-edit-modal">Edit</button>
-                    <form action="DeleteEventServlet" method="post" style="display:inline;">
-                        <input type="hidden" name="eventId" value="${event.id}">
-                        <button type="submit" class="btn-delete-modal" onclick="return confirm('Are you sure?')">Delete</button>
+                    <form action="${pageContext.request.contextPath}/DeleteEventServlet" method="post" style="display:inline;">
+                        <input type="hidden" name="eventId" id="modalDeleteEventId" value="">
+                        <button type="submit" class="btn-delete-modal" onclick="return confirm('Are you sure you want to delete this event?')">Delete</button>
                     </form>            
                 </div>
             </div>
@@ -762,127 +881,18 @@
 
 <c:set var="additionalScripts" scope="request">
     <script>
-        // Check for editEventId on page load
         document.addEventListener('DOMContentLoaded', function() {
-            const editEventId = '<%= session.getAttribute("editEventId") %>';
-            
-            if (editEventId && editEventId !== 'null') {
-                // Clear the session attribute
-                fetch('${pageContext.request.contextPath}/EditEventServlet?clearSession=true')
-                    .then(() => {
-                        const eventCard = document.querySelector(`[data-id="${editEventId}"]`);
-                        if (eventCard) {
-                            const editButton = eventCard.querySelector('.btn-edit');
-                            if (editButton) {
-                                setTimeout(() => editButton.click(), 300);
-                            }
-                        }
-                    });
-            }
-        });
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-      
-            
             // DOM Elements
             const events = document.querySelectorAll('.event-card');
             const eventSearch = document.getElementById('eventSearch');
             const categoryFilter = document.getElementById('categoryFilter');
-            const priceFilter = document.getElementById('priceFilter');
+            const statusFilter = document.getElementById('statusFilter');
             const eventModal = document.getElementById('eventModal');
             const editForm = document.getElementById('editForm');
             const eventDetails = document.getElementById('eventDetails');
             const eventEditForm = document.getElementById('eventEditForm');
 
-
-            // Initialize search and filters
-            performSearch();
-
-            // Search functionality
-            function performSearch() {
-                console.log('Performing search...');
-                const searchTerm = (eventSearch?.value || '').toLowerCase().trim();
-                const selectedCategory = categoryFilter?.value || '';
-                const selectedPrice = priceFilter?.value || '';
-
-                console.log('Filters:', { searchTerm, selectedCategory, selectedPrice });
-
-                let visibleCount = 0;
-                
-                events.forEach(event => {
-                    const eventTitle = event.getAttribute('data-title') || '';
-                    const eventCategory = event.getAttribute('data-category') || '';
-                    const eventPrice = parseFloat(event.getAttribute('data-price')) || 0;
-                    const eventDescription = event.getAttribute('data-description') || '';
-
-                    console.log(`Checking event: ${eventTitle}`, {
-                        title: eventTitle,
-                        category: eventCategory,
-                        price: eventPrice,
-                        description: eventDescription.substring(0, 50) + '...'
-                    });
-
-                    // Search matching
-                    let matchesSearch = true;
-                    if (searchTerm) {
-                        matchesSearch = eventTitle.includes(searchTerm) || 
-                                       eventDescription.includes(searchTerm);
-                        console.log(`Search match for "${searchTerm}":`, matchesSearch);
-                    }
-
-                    // Category matching
-                    let matchesCategory = true;
-                    if (selectedCategory) {
-                        matchesCategory = eventCategory === selectedCategory;
-                        console.log(`Category match "${selectedCategory}":`, matchesCategory);
-                    }
-
-                    // Price matching
-                    let matchesPrice = true;
-                    if (selectedPrice) {
-                        switch (selectedPrice) {
-                            case 'free':
-                                matchesPrice = eventPrice === 0;
-                                break;
-                            case '1-50':
-                                matchesPrice = eventPrice >= 1 && eventPrice <= 50;
-                                break;
-                            case '51-100':
-                                matchesPrice = eventPrice >= 51 && eventPrice <= 100;
-                                break;
-                            case '101+':
-                                matchesPrice = eventPrice > 100;
-                                break;
-                            default:
-                                matchesPrice = true;
-                        }
-                        console.log(`Price match "${selectedPrice}":`, matchesPrice);
-                    }
-
-                    // Show/hide based on filters
-                    const shouldShow = matchesSearch && matchesCategory && matchesPrice;
-                    console.log(`Should show ${eventTitle}:`, shouldShow);
-                    
-                    if (shouldShow) {
-                        event.style.display = 'flex';
-                        visibleCount++;
-                        
-                        if (searchTerm) {
-                            highlightSearchTerm(event, searchTerm);
-                        } else {
-                            removeHighlights(event);
-                        }
-                    } else {
-                        event.style.display = 'none';
-                    }
-                });
-
-                console.log(`Total visible events: ${visibleCount}`);
-            }
-
-            // Highlight functionality
+            // ===== SEARCH HIGHLIGHT FUNCTIONS =====
             function escapeHtml(str) {
                 return String(str)
                     .replace(/&/g, '&amp;')
@@ -902,26 +912,20 @@
                     if (!target.dataset.originalHtml) {
                         target.dataset.originalHtml = target.innerHTML;
                     }
-                    
-                    const originalText = target.textContent || '';
-                    const lowerText = originalText.toLowerCase();
-                    
-                    // Only highlight if the search term exists in the text
-                    if (lowerText.includes(search)) {
-                        let startIndex = 0;
-                        let result = '';
-                        let idx;
-                        
-                        while ((idx = lowerText.indexOf(search, startIndex)) !== -1) {
-                            result += escapeHtml(originalText.slice(startIndex, idx));
-                            result += '<span class="highlight">' + 
-                                     escapeHtml(originalText.slice(idx, idx + search.length)) + 
-                                     '</span>';
-                            startIndex = idx + search.length;
-                        }
-                        result += escapeHtml(originalText.slice(startIndex));
-                        target.innerHTML = result;
+                    const text = target.textContent || '';
+                    const lowerText = text.toLowerCase();
+
+                    let startIndex = 0;
+                    let result = '';
+                    let idx;
+                    while ((idx = lowerText.indexOf(search, startIndex)) !== -1) {
+                        result += escapeHtml(text.slice(startIndex, idx));
+                        result += '<span class="highlight">' + escapeHtml(text.slice(idx, idx + search.length)) + '</span>';
+                        startIndex = idx + search.length;
                     }
+                    result += escapeHtml(text.slice(startIndex));
+
+                    target.innerHTML = result;
                 });
             }
 
@@ -938,23 +942,116 @@
                 });
             }
 
-            // Event listeners for search and filters
-            if (eventSearch) {
-                eventSearch.addEventListener('input', performSearch);
-                console.log('Added event listener to eventSearch');
-            }
-            
-            if (categoryFilter) {
-                categoryFilter.addEventListener('change', performSearch);
-                console.log('Added event listener to categoryFilter');
-            }
-            
-            if (priceFilter) {
-                priceFilter.addEventListener('change', performSearch);
-                console.log('Added event listener to priceFilter');
+            function applySearchHighlights(searchTerm) {
+                const eventCards = document.querySelectorAll('.event-card');
+                
+                eventCards.forEach(card => {
+                    removeHighlights(card);
+                });
+                
+                if (!searchTerm || searchTerm.trim() === '') return;
+                
+                const term = searchTerm.trim().toLowerCase();
+                
+                eventCards.forEach(card => {
+                    const targets = card.querySelectorAll('.highlight-target');
+                    let hasMatch = false;
+                    
+                    targets.forEach(target => {
+                        const text = target.textContent || '';
+                        if (text.toLowerCase().includes(term)) {
+                            hasMatch = true;
+                        }
+                    });
+                    
+                    if (hasMatch) {
+                        highlightSearchTerm(card, term);
+                    }
+                });
             }
 
-            // Event modal functionality
+            // ===== SEARCH AND FILTER FUNCTIONS =====
+            let searchTimer = null;
+            let isSubmitting = false;
+
+            function performSearchAndFilter() {
+                if (isSubmitting) return;
+                isSubmitting = true;
+                
+                const url = new URL(window.location.href);
+                url.searchParams.delete('page');
+                
+                const searchVal = eventSearch.value.trim();
+                const categoryVal = categoryFilter.value;
+                const statusVal = statusFilter.value;
+                
+                if (searchVal) {
+                    url.searchParams.set('search', searchVal);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                
+                if (categoryVal) {
+                    url.searchParams.set('categoryFilter', categoryVal);
+                } else {
+                    url.searchParams.delete('categoryFilter');
+                }
+                
+                if (statusVal) {
+                    url.searchParams.set('statusFilter', statusVal);
+                } else {
+                    url.searchParams.delete('statusFilter');
+                }
+                
+                url.searchParams.set('type', 'events-mg');
+                
+                window.location.href = url.toString();
+            }
+
+            // ===== EVENT LISTENERS =====
+            // Search input - live highlighting + debounced search
+            eventSearch.addEventListener('input', function() {
+                const searchTerm = this.value.trim();
+                
+                applySearchHighlights(searchTerm);
+                
+                if (searchTimer) {
+                    clearTimeout(searchTimer);
+                }
+                
+                if (searchTerm === '') {
+                    searchTimer = setTimeout(function() {
+                        performSearchAndFilter();
+                    }, 300);
+                    return;
+                }
+                
+                if (searchTerm.length >= 2) {
+                    searchTimer = setTimeout(function() {
+                        performSearchAndFilter();
+                    }, 500);
+                }
+            });
+
+            eventSearch.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchTimer) {
+                        clearTimeout(searchTimer);
+                    }
+                    performSearchAndFilter();
+                }
+            });
+
+            categoryFilter.addEventListener('change', function() {
+                performSearchAndFilter();
+            });
+
+            statusFilter.addEventListener('change', function() {
+                performSearchAndFilter();
+            });
+
+            // ===== MODAL FUNCTIONALITY =====
             events.forEach(event => {
                 event.addEventListener('click', function(e) {
                     if (e.target.classList.contains('btn-edit') || e.target.classList.contains('btn-delete')) {
@@ -973,6 +1070,16 @@
                 document.getElementById('modalEventTitle').textContent = eventTitle;
                 document.getElementById('modalEventImg').src = eventImg.src;
                 document.getElementById('modalEventImg').alt = eventImg.alt;
+                document.getElementById('modalDeleteEventId').value = eventId;
+                
+                // Set status badge
+                const statusElement = eventInfo.querySelector('.event-status-badge');
+                const statusBadge = document.getElementById('modalEventStatus');
+                if (statusElement) {
+                    const statusText = statusElement.textContent.trim();
+                    statusBadge.textContent = statusText;
+                    statusBadge.className = 'modal-badge' + (statusText === 'Past' ? ' modal-badge-past' : '');
+                }
                 
                 const infoPs = eventInfo.querySelectorAll('p');
                 let detailsHTML = '';
@@ -981,8 +1088,6 @@
                 });
                 
                 detailsHTML += '<p><strong>Event ID:</strong> ' + eventId + '</p>';
-                detailsHTML += '<p><strong>Status:</strong> Active</p>';
-                detailsHTML += '<p><strong>Created:</strong> ' + new Date().toLocaleDateString() + '</p>';
 
                 eventDetails.innerHTML = detailsHTML;
                 
@@ -1042,15 +1147,6 @@
                     if (text.includes('Event ID:')) eventId = text.split('Event ID:')[1].trim();
                 });
 
-                // Ensure the hidden input exists
-                if (!document.getElementById('editEventId')) {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.id = 'editEventId';
-                    input.name = 'eventId';
-                    document.getElementById('eventEditForm').appendChild(input);
-                }
-                
                 document.getElementById('editEventId').value = eventId;
                 document.getElementById('editEventTitle').value = document.getElementById('modalEventTitle').textContent;
                 document.getElementById('editEventDescription').value = description;
@@ -1060,7 +1156,6 @@
             }
 
             function formatDateForInput(dateString) {
-                // Convert date string from "MMM dd, yyyy" to "yyyy-MM-dd"
                 const months = {
                     'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
                     'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
@@ -1073,7 +1168,7 @@
                     const year = parts[2];
                     return `${year}-${month}-${day}`;
                 }
-                return dateString; // fallback
+                return dateString;
             }
 
             // Edit form submission
@@ -1085,61 +1180,6 @@
 
                 fetch('${pageContext.request.contextPath}/EditEventServlet', {
                     method: 'POST',
-                    body: formData,
-                    redirect: 'manual'
-                })
-                .then(response => {
-                    if (response.type === 'opaqueredirect') {
-                        // Server is redirecting, manually follow the redirect
-                        window.location.href = response.headers.get('Location') || 
-                                              '${pageContext.request.contextPath}/manage_events.jsp';
-                        return null;
-                    }
-                    return response.text();
-                })
-                .then(data => {
-                    if (data !== null) {
-                        if (data.toLowerCase().includes("success")) {
-                            alert('Event updated successfully!');
-                            window.location.reload();
-                        } else {
-                            alert('Error updating event: ' + data);
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error updating event. Please try again.');
-                });
-            });
-
-            // Delete functionality
-            document.querySelector('.btn-delete-modal').addEventListener('click', function() {
-                const eventId = document.getElementById('editEventId').value || 
-                               document.getElementById('modalEventTitle').textContent;
-                
-                if (confirm('Are you sure you want to delete this event?')) {
-                    deleteEvent(eventId);
-                }
-            });
-
-            document.querySelectorAll('.btn-delete').forEach(button => {
-                button.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const eventId = this.getAttribute('data-event-id');
-                    
-                    if (confirm('Are you sure you want to delete this event?')) {
-                        deleteEvent(eventId);
-                    }
-                });
-            });
-
-            function deleteEvent(eventId) {
-                const formData = new FormData();
-                formData.append('eventId', eventId);
-                
-                fetch('${pageContext.request.contextPath}/DeleteEventServlet', {
-                    method: 'POST',
                     body: formData
                 })
                 .then(response => {
@@ -1150,17 +1190,17 @@
                 })
                 .then(data => {
                     if (data.toLowerCase().includes("success")) {
-                        alert('Event deleted successfully!');
-                        window.location.reload();
+                        alert('Event updated successfully!');
+                        window.location.href = "${pageContext.request.contextPath}/manage_events.jsp?highlightId=" + eventId;
                     } else {
-                        alert('Error deleting event: ' + data);
+                        alert('Error updating event: ' + data);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error deleting event. Please try again.');
+                    alert('Error updating event. Please try again.');
                 });
-            }
+            });
 
             // Edit buttons on cards
             document.querySelectorAll('.btn-edit').forEach(button => {
@@ -1177,31 +1217,51 @@
                 });
             });
 
-            // Handle URL parameters for search and highlighting
+            // Check for event ID to highlight from session/URL
             const urlParams = new URLSearchParams(window.location.search);
-            const searchQuery = urlParams.get('searchQuery');
             const highlightId = urlParams.get('highlightId');
-            
-            if (searchQuery && eventSearch) {
-                eventSearch.value = searchQuery;
-                setTimeout(() => performSearch(), 100);
-            }
-            
+            const editEventIdFromSession = '<%= session.getAttribute("editEventId") %>';
+
             if (highlightId) {
-                const event = document.querySelector(`[data-id="${highlightId}"]`);
-                if (event) {
-                    setTimeout(() => {
-                        event.scrollIntoView({behavior: 'smooth', block: 'center'});
-                        event.style.animation = 'highlight-pulse 2s ease-in-out';
-                    }, 500);
+                const eventCard = document.querySelector(`.event-card[data-id="${highlightId}"]`);
+                if (eventCard) {
+                    eventCard.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    eventCard.style.animation = 'highlight-pulse 2s ease-in-out';
+                    
+                    if (editEventIdFromSession && editEventIdFromSession !== 'null') {
+                        const editButton = eventCard.querySelector('.btn-edit');
+                        if (editButton) {
+                            fetch('${pageContext.request.contextPath}/ClearEditEventIdServlet')
+                                .then(() => {
+                                    setTimeout(() => {
+                                        editButton.click();
+                                    }, 300);
+                                });
+                        }
+                    }
                 }
             }
-        });
-    </script>
-    
-    <script>
-        // Handle page reload - redirect if not logged in
-        window.onload = function() {
+
+            // Handle URL parameters for search
+            const searchQuery = urlParams.get('search');
+            if (searchQuery) {
+                eventSearch.value = searchQuery;
+                setTimeout(function() {
+                    applySearchHighlights(searchQuery);
+                }, 200);
+            }
+
+            // Delete event from modal
+            document.querySelector('.btn-delete-modal').addEventListener('click', function(e) {
+                const eventId = document.getElementById('modalDeleteEventId').value;
+                if (!eventId) {
+                    alert('Event ID not found');
+                    return;
+                }
+                // The form will handle the submission
+            });
+
+            // Page reload handling
             const navEntries = performance.getEntriesByType("navigation");
             if (navEntries.length > 0 && navEntries[0].type === "reload") {
                 const isLoggedIn = <%= isUserLoggedIn %>;
@@ -1209,7 +1269,11 @@
                     window.location.replace("LoginForm.jsp");
                 }
             }
-        };
+        });
+
+        function clearAllFilters() {
+            window.location.href = '${pageContext.request.contextPath}/AllSearchandPagination?type=events-mg';
+        }
     </script>
 </c:set>
 

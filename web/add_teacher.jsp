@@ -263,7 +263,6 @@ label {
 <c:set var="pageContent" scope="request">
         
      
-          <div class="content-wrapper">
             <div class="page-header">
               <h3 class="page-title"> Add a Teacher </h3>
               <nav aria-label="breadcrumb">
@@ -448,7 +447,6 @@ label {
                 </div>
               </div>
             </div>
-          </div>
        
     
     </c:set>

@@ -57,6 +57,13 @@
     <link rel="icon" type="image/svg+xml" href="assets/images/C Logo gold.svg?v=1.1" />
     <!-- Additional CSS for child pages -->
     <c:if test="${not empty additionalCSS}">
+        <style>
+        .form-control:focus {
+            outline: none;
+            border-color: #81d4fa;
+            box-shadow: 0 0 5px rgba(129, 212, 250, 0.3);
+        }
+        </style>
         ${additionalCSS}
     </c:if>
 </head>
@@ -125,15 +132,15 @@
           </li>
           <li class="nav-item menu-items">
               <a class="nav-link" href="universalSearchResults_1.jsp">
-              <span class="menu-icon">
-                <i class="mdi mdi-magnify"></i>
+              <span class="menu-icon bg-dark">
+                <i class="mdi mdi-magnify bg-dark"></i>
               </span>
               <span class="menu-title">Search</span>
             </a>
           </li>
           <li class="nav-item menu-items">
               <a class="nav-link active" href="Admin_penal.jsp">
-              <span class="menu-icon">
+              <span class="menu-icon bg-dark">
                 <i class="mdi mdi-speedometer"></i>
               </span>
               <span class="menu-title">Dashboard</span>
@@ -141,7 +148,7 @@
           </li>
           <li class="nav-item menu-items">
             <a class="nav-link" data-toggle="collapse" href="#drop-student" aria-expanded="false" aria-controls="drop-student">
-              <span class="menu-icon">
+              <span class="menu-icon bg-dark">
                 <i class="mdi mdi-school"></i>
               </span>
               <span class="menu-title">Students</span>
@@ -157,7 +164,7 @@
           </li>
           <li class="nav-item menu-items">
             <a class="nav-link" data-toggle="collapse" href="#drop-teachers" aria-expanded="false" aria-controls="drop-teachers">
-              <span class="menu-icon">
+              <span class="menu-icon bg-dark">
                 <i class="mdi mdi-account-multiple"></i>
               </span>
               <span class="menu-title">Teachers</span>
@@ -173,7 +180,7 @@
           </li>
           <li class="nav-item menu-items">
             <a class="nav-link" data-toggle="collapse" href="#drop-events" aria-expanded="false" aria-controls="drop-course">
-              <span class="menu-icon">
+              <span class="menu-icon bg-dark">
                 <i class="mdi mdi-calendar-check"></i>
               </span>
               <span class="menu-title">Events</span>
@@ -189,7 +196,7 @@
           </li>
           <li class="nav-item menu-items">
           <a class="nav-link" data-toggle="collapse" href="#drop-course" aria-expanded="false" aria-controls="drop-course">
-            <span class="menu-icon">
+            <span class="menu-icon bg-dark">
               <i class="mdi mdi-book-multiple"></i>
             </span>
             <span class="menu-title">Courses</span>
@@ -205,7 +212,7 @@
         </li>
         <li class="nav-item menu-items">
             <a class="nav-link active" href="ViewAllMessage.jsp">
-              <span class="menu-icon">
+              <span class="menu-icon bg-dark">
                 <i class="mdi mdi-email-outline"></i>
               </span>
               <span class="menu-title">Messages</span>
@@ -229,7 +236,7 @@
             <ul class="navbar-nav w-100">
               <li class="nav-item w-100">
                 <form class="nav-link mt-2 mt-md-0 d-none d-lg-flex search">
-                    <input type="text" id="searchid" class="form-control" placeholder="Search anyone, anything, anyimage, anycourse">
+                    <input type="text" id="searchid" class="form-control bg-dark" placeholder="Search anyone, anything, anyimage, anycourse">
                 </form>
                   <div style="display: none; max-width: 500px; margin: 0 auto; padding: 10px 0;"> 
                     <form id="hiddenSearchForm" action="${pageContext.request.contextPath}/UniversalSearchServlet" method="post">
@@ -481,8 +488,15 @@
           <!-- Footer -->
           <footer class="footer">
             <div class="d-sm-flex justify-content-center justify-content-sm-between">
-              <span class="text-muted d-block text-center text-sm-left d-sm-inline-block">Copyright © Corona 2025</span>
-              <span class="float-none float-sm-right d-block mt-1 mt-sm-0 text-center"> Our <a href="https://www.bootstrapdash.com/bootstrap-admin-template/" target="_blank">Front Page </a> from <b>CORONA University</b></span>
+              <span class="text-muted d-block text-center text-sm-left d-sm-inline-block">Copyright © Campora 2026</span>
+              <span class="float-none float-sm-right d-block mt-1 mt-sm-0 text-center"> 
+                  Our 
+                  <a href="#" target="_blank">
+                      Front Page 
+                  </a>
+                  from 
+                  <b>CORONA University</b>
+              </span>
             </div>
           </footer>
         </div>

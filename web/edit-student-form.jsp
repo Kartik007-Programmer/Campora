@@ -327,7 +327,7 @@
             </div>
             
             <button type="submit">Update Student</button>
-            <a href="pages/main_page/Student/manage_students.jsp" class="cancel-btn">
+            <a href="manage_students.jsp" class="cancel-btn">
                 Cancel
             </a>
         </form>
